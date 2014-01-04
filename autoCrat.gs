@@ -1,4 +1,4 @@
-var scriptTitle = "autoCrat Script V4.4.0 (10/20/13)";
+var scriptTitle = "autoCrat Script V4.5.2 (1/4/14)";
 var scriptName = "autoCrat"
 var analyticsId = 'UA-30983014-1'
 // Written by Andrew Stillman for New Visions for Public Schools
@@ -36,37 +36,32 @@ function onOpen() {
 //Subsequently, adds the menu of dropdown items based on previous actions by the user, as stored in script properties.
 function autoCrat_initialize() {
   var ss = SpreadsheetApp.getActive();
+  var properties = ScriptProperties.getProperties();
   var menuEntries = [];
   menuEntries.push({name: "What is autoCrat?", functionName: "autoCrat_whatIs"});
-  var preconfigStatus = ScriptProperties.getProperty('preconfigStatus');
-  if (preconfigStatus) {
+  if (properties.preconfigStatus) {
     menuEntries.push({name: "Step 1: Choose Template Doc", functionName: "autoCrat_defineTemplate"});
   } else {
     menuEntries.push({name: "Run initial configuration", functionName: "autoCrat_preconfig"});
   }
-  var fileId = ScriptProperties.getProperty('fileId');
-  if ((fileId)&&(!fileId=="")) {
+  if ((properties.fileId)&&(!properties.fileId=="")) {
     menuEntries.push({name: "Step 2: Select Source Data", functionName: "autoCrat_defineSettings"});
-    var sheetName = ScriptProperties.getProperty('sheetName');
-    var mappingString = ScriptProperties.getProperty('mappingString');
-    var fileSetting = ScriptProperties.getProperty('fileSetting');
-    var emailSetting = ScriptProperties.getProperty('emailSetting');
-    if ((sheetName)&&(!sheetName=="")) {
+    if ((properties.sheetName)&&(!properties.sheetName=="")) {
       menuEntries.push({name: "Step 3: Set Merge Conditions", functionName: "autoCrat_setMergeConditions"});
     }
     menuEntries.push({name: "Step 4: Set Field Mappings", functionName: "autoCrat_mapFields"});
   }
-  if ((mappingString)&&(!mappingString=="")) { 
+  if ((properties.mappingString)&&(properties.mappingString!="")) { 
     menuEntries.push({name: "Step 5: Set Merge Type", functionName: "autoCrat_runMergeConsole"});
   }
-  if (((fileSetting)||(emailSetting))&&(mappingString)&&(!mappingString=="")) { 
+  if (((properties.fileSetting)||(properties.emailSetting))&&(properties.mappingString)&&(properties.mappingString!="")) { 
     menuEntries.push({name: "Step 6: Preview/Run Merge", functionName: "autoCrat_runMergePrompt"});
   }
-  if (((fileSetting)||(emailSetting))&&(mappingString)&&(!mappingString=="")) { 
+  if (((properties.fileSetting)||(properties.emailSetting))&&(properties.mappingString)&&(properties.mappingString!="")) { 
     menuEntries.push({name: "Advanced options", functionName: "autoCrat_advanced"});
   }
   ss.addMenu("autoCrat", menuEntries);
-  if ((preconfigStatus)&&(!(fileId))) {
+  if ((properties.preconfigStatus)&&(!(properties.fileId))) {
     autoCrat_defineTemplate();
   }
 }
@@ -77,7 +72,7 @@ function autoCrat_advanced() {
   var ss = SpreadsheetApp.getActive();
   var app = UiApp.createApplication().setTitle("Advanced options").setHeight(130).setWidth(290);
   var quitHandler = app.createServerHandler('autoCrat_quitUi');
-  var handler1 = app.createServerHandler('detectFormSheet');
+  var handler1 = app.createServerHandler('autoCrat_detectFormSheet');
   var button1 = app.createButton('Copy down formulas on form submit').addClickHandler(quitHandler).addClickHandler(handler1);
   var handler2 = app.createServerHandler('autoCrat_extractorWindow');
   var button2 = app.createButton('Package this system for others to copy').addClickHandler(quitHandler).addClickHandler(handler2);
@@ -122,7 +117,6 @@ function autoCrat_onFormSubmit() {
   var fileSetting = ScriptProperties.getProperty('fileSetting');
   var emailSetting = ScriptProperties.getProperty('emailSetting');
   if ((formTrigger == "true")&&(fileSetting == "true") || (formTrigger == "true")&&(emailSetting == "true")) {
-    autoCrat_waitForFormulaCaddy(ss)
     autoCrat_runMerge();
   }
   lock.releaseLock();
@@ -136,44 +130,44 @@ function autoCrat_runMergeConsole() {
   var app = UiApp.createApplication();
   app.setTitle("Step 5: Set Merge Type");
   app.setHeight("500");
- 
-var fileId = ScriptProperties.getProperty('fileId');
+  
+  var fileId = ScriptProperties.getProperty('fileId');
   if (!fileId) { 
-       Browser.msgBox("You must select a template file before you can run a merge.");
-       autoCrat_defineTemplate();
-       return;
-       }
+    Browser.msgBox("You must select a template file before you can run a merge.");
+    autoCrat_defineTemplate();
+    return;
+  }
   var mappingString = ScriptProperties.getProperty('mappingString');
   if (!mappingString) {
-       Browser.msgBox("You must map document fields before you can run a merge.");
-       autoCrat_mapFields();
-       return;
-       }
-
+    Browser.msgBox("You must map document fields before you can run a merge.");
+    autoCrat_mapFields();
+    return;
+  }
+  
   var sheetName = ScriptProperties.getProperty('sheetName');
   if (!sheetName) {
-       Browser.msgBox("You must select a source data sheet before you can run a merge.");
-       autoCrat_defineSettings();
-       return;
-       }
-
- //create spinner graphic to show upon button click awaiting merge completion
+    Browser.msgBox("You must select a source data sheet before you can run a merge.");
+    autoCrat_defineSettings();
+    return;
+  }
+  
+  //create spinner graphic to show upon button click awaiting merge completion
   var refreshPanel = app.createFlowPanel();
   refreshPanel.setId('refreshPanel');
   refreshPanel.setStyleAttribute("width", "100%");
   refreshPanel.setStyleAttribute("height", "500px");
   refreshPanel.setVisible(false);
-
-//Adds the graphic for the waiting period before merge completion. Set invisible until client handler
-//is called by button click 
+  
+  //Adds the graphic for the waiting period before merge completion. Set invisible until client handler
+  //is called by button click 
   var spinner = app.createImage(AUTOCRATIMAGEURL);
   spinner.setVisible(false);
   spinner.setStyleAttribute("position", "absolute");
   spinner.setStyleAttribute("top", "220px");
   spinner.setStyleAttribute("left", "220px");
   spinner.setId("dialogspinner");
-
-// Build the panel
+  
+  // Build the panel
   var panel = app.createVerticalPanel().setId("fieldMappingPanel");
   var varScrollPanel = app.createScrollPanel().setHeight("150px").setStyleAttribute('backgroundColor', 'whiteSmoke');
   var scrollPanel = app.createScrollPanel().setHeight("350px");
@@ -186,19 +180,19 @@ var fileId = ScriptProperties.getProperty('fileId');
   var secondaryClickHandler = app.createClientHandler().forTargets(secondaryFolder).setStyleAttribute('color', 'black');
   secondaryFolder.addMouseDownHandler(secondaryClickHandler);
   
-// Build listbox for folder destination options.  Limit to first 20 folders to avoid
-// Google server errors.
+  // Build listbox for folder destination options.  Limit to first 20 folders to avoid
+  // Google server errors.
   var parent = DocsList.getFileById(ss.getId()).getParents()[0];
   if (!(parent)) {
-   parent = DocsList.getRootFolder();
+    parent = DocsList.getRootFolder();
   }
   var folders = parent.getFolders();
   if (folders.length>0) {
-  for (var i = 0; i<folders.length; i++) {
-    var name = folders[i].getName();
-    var id = folders[i].getId();
-    folderListBox.addItem(name, id);
-  }
+    for (var i = 0; i<folders.length; i++) {
+      var name = folders[i].getName();
+      var id = folders[i].getId();
+      folderListBox.addItem(name, id);
+    }
   } else {
     var newFolderId = parent.createFolder("New Merged Document Folder");
     folderListBox.addItem("New Merged Document Folder", newFolderId);
@@ -207,18 +201,18 @@ var fileId = ScriptProperties.getProperty('fileId');
   
   var fileToFolderCheckBox = app.createCheckBox().setId("fileToFolderCheckBox").setName("fileToFolderCheckValue");
   fileToFolderCheckBox.setText("Save merged files to Docs").setStyleAttribute("clear","right");;
-
+  
   var fileToFolderCheckBoxFalse = app.createCheckBox().setId("fileToFolderCheckBoxFalse").setName("fileToFolderCheckValueFalse").setVisible(false);
   fileToFolderCheckBoxFalse.setText("Save merged files to Docs").setVisible(false).setStyleAttribute("clear","right"); 
-
-   
+  
+  
   //Preset to previously used folder value if it exists
   var destinationFolderId = ScriptProperties.getProperty('destinationFolderId');
   if ((destinationFolderId)&&(destinationFolderId!='')) {
-      //autoCrat_getFolderIndex is a custom built function that looks up where the saved folder is in the list
-      var index = autoCrat_getFolderIndex(destinationFolderId)+1;
-      folderListBox.setItemSelected(index, true);
-      }
+    //autoCrat_getFolderIndex is a custom built function that looks up where the saved folder is in the list
+    var index = autoCrat_getFolderIndex(destinationFolderId)+1;
+    folderListBox.setItemSelected(index, true);
+  }
   var secondaryFolderId = ScriptProperties.getProperty('secondaryFolderId');
   if ((secondaryFolderId)&&(secondaryFolderId!='')) {
     secondaryFolder.setValue(secondaryFolderId).setStyleAttribute('color','black');
@@ -243,13 +237,13 @@ var fileId = ScriptProperties.getProperty('fileId');
   var fileTypeLabel = app.createLabel().setText("Select the file type you want to create");
   var fileTypeSelectBox = app.createListBox().setId("fileTypeSelectBox").setName("fileType");
   fileTypeSelectBox.addItem("Google Doc")
-                   .addItem("PDF");
+  .addItem("PDF");
   var fileType = ScriptProperties.getProperty('fileType');
   if (fileType=='Google Doc') {
-     fileTypeSelectBox.setSelectedIndex(0);
+    fileTypeSelectBox.setSelectedIndex(0);
   }
   if (fileType=='PDF') {
-     fileTypeSelectBox.setSelectedIndex(1);
+    fileTypeSelectBox.setSelectedIndex(1);
   } 
   var linkCheckBox = app.createCheckBox('Save links to merged Docs in spreadsheet').setId('linkToDoc').setName('linkToDoc');
   var linkToDoc = ScriptProperties.getProperty('linkToDoc');
@@ -266,59 +260,59 @@ var fileId = ScriptProperties.getProperty('fileId');
   var button = app.createButton().setId("runMergeButton").addClickHandler(saveRunSettingsHandler);
   button.addClickHandler(spinnerHandler);
   button.setText("Save Settings");
-
+  
   /*check for pre-existing values and preset checkbox and visibilities accordingly
-   checkboxes fire off client handlers to make sub-panels visible when checked
-   Below is a bit of ridiculous javascript trickery to work around the dire limitations
-   of checkbox handlers, which don't allow for checked-unchecked 
-   state to be recognized by the handler...hint, hint Googlers.
-   The solution is to create two checkboxes, one for the "checked" state and one for the "unchecked"
-   and fire a different handler, alternately hiding one of the two checkboxes and using
-   server handlers to reset their checked status.
-   The user only ever sees one checkbox
+  checkboxes fire off client handlers to make sub-panels visible when checked
+  Below is a bit of ridiculous javascript trickery to work around the dire limitations
+  of checkbox handlers, which don't allow for checked-unchecked 
+  state to be recognized by the handler...hint, hint Googlers.
+  The solution is to create two checkboxes, one for the "checked" state and one for the "unchecked"
+  and fire a different handler, alternately hiding one of the two checkboxes and using
+  server handlers to reset their checked status.
+  The user only ever sees one checkbox
   */
   
   var fileSetting = ScriptProperties.getProperty('fileSetting');
   var fileInfoPanel = app.createVerticalPanel().setId("fileInfoPanel");
-   if (fileSetting=="true") {
-     fileToFolderCheckBox.setVisible(true).setValue(true);
-     fileToFolderCheckBoxFalse.setVisible(false).setValue(true);
-     fileInfoPanel.setVisible(true);
+  if (fileSetting=="true") {
+    fileToFolderCheckBox.setVisible(true).setValue(true);
+    fileToFolderCheckBoxFalse.setVisible(false).setValue(true);
+    fileInfoPanel.setVisible(true);
   } else {
     fileToFolderCheckBox.setVisible(false).setValue(false);
     fileToFolderCheckBoxFalse.setVisible(true).setValue(false);
     fileInfoPanel.setVisible(false);
   } 
-
-
+  
+  
   var fileToEmailCheckBox = app.createCheckBox().setId("fileToEmailCheckBox").setName("fileToEmailCheckValue");
   fileToEmailCheckBox.setText("Send merged files via Email").setEnabled(false);
-
+  
   var fileToEmailCheckBoxFalse = app.createCheckBox().setId("fileToEmailCheckBoxFalse").setName("fileToEmailCheckValueFalse").setVisible(false);
   fileToEmailCheckBoxFalse.setText("Email and/or share merged documents").setVisible(false); 
-
+  
   var emailLabel = app.createLabel().setId("emailRecipientsLabel");
   emailLabel.setText("Recepient email addresses:");
-
+  
   var emailStringBox = app.createTextBox().setId("emailStringBox").setName('emailString');
   emailStringBox.setWidth("100%");
   var emailStringValue = ScriptProperties.getProperty('emailString');
   if (emailStringValue) {
     emailStringBox.setValue(emailStringValue);
   }
-
+  
   var emailHelpLabel = app.createLabel().setId("emailHelpLabel");
   var emailHelpText = "Emails must be separated by commas.";
   emailHelpLabel.setText(emailHelpText);
   emailHelpLabel.setStyleAttribute("color","grey");
-
+  
   var emailSubjectLabel = app.createLabel().setText('Email subject:');
- 
+  
   var emailSubjectBox = app.createTextBox().setId("emailSubjectBox").setName("emailSubject");
   emailSubjectBox.setWidth("100%");
   var emailSubjectPreset =ScriptProperties.getProperty('emailSubject');
   if (emailSubjectPreset) {
-     emailSubjectBox.setValue(emailSubjectPreset);
+    emailSubjectBox.setValue(emailSubjectPreset);
   } 
   
   var bodyPrefixHelpLabel = app.createLabel().setId("bodyPrefixLabel").setText('Short note to recipients:');
@@ -327,58 +321,66 @@ var fileId = ScriptProperties.getProperty('fileId');
   
   var bodyPrefix = ScriptProperties.getProperty('bodyPrefix');
   if (bodyPrefix != null) {
-  bodyPrefixTextArea.setValue(bodyPrefix);
+    bodyPrefixTextArea.setValue(bodyPrefix);
   }
   var emailAttachmentLabel = app.createLabel().setText("Attachment type:");
   var emailAttachmentListBox = app.createListBox().setId("emailAttachmentListBox").setName("emailAttachment");
   emailAttachmentListBox.addItem("PDF")
-                        .addItem("Recipient-view-only Google Doc")
-                        .addItem("Recipient-editable Google Doc");
+  .addItem("Recipient-view-only Google Doc")
+  .addItem("Recipient-editable Google Doc")
+  .addItem("Recipient-comment-only Google Doc")
+  .addItem("Publicly-viewable by link Google Doc");
   var emailInfoPanel = app.createVerticalPanel().setId("emailInfoPanel");
   
   var attachmentPreset = ScriptProperties.getProperty('emailAttachment');
-
+  
   if(attachmentPreset) {
-  switch (attachmentPreset) {
-    case "PDF":
-      emailAttachmentListBox.setSelectedIndex(0);
-      break;
-    case "Recipient-view-only Google Doc":
-      emailAttachmentListBox.setSelectedIndex(1);
-      break;
-    case "Recipient-editable Google Doc":
-      emailAttachmentListBox.setSelectedIndex(2);
-      break;
-    default:
-      emailAttachmentListBox.setSelectedIndex(0);
+    switch (attachmentPreset) {
+      case "PDF":
+        emailAttachmentListBox.setSelectedIndex(0);
+        break;
+      case "Recipient-view-only Google Doc":
+        emailAttachmentListBox.setSelectedIndex(1);
+        break;
+      case "Recipient-editable Google Doc":
+        emailAttachmentListBox.setSelectedIndex(2);
+        break;
+      case "Recipient-comment-only Google Doc":
+        emailAttachmentListBox.setSelectedIndex(3);
+        break;
+      case "Publicly-viewable by link Google Doc":
+        emailAttachmentListBox.setSelectedIndex(4);
+        break;
+      default:
+        emailAttachmentListBox.setSelectedIndex(0);
+    }
   }
-}
-
-//check for pre-existing value and preset checkbox and visibilities accordingly
+  
+  //check for pre-existing value and preset checkbox and visibilities accordingly
   var emailSetting = ScriptProperties.getProperty('emailSetting');
   var emailInfoPanel = app.createVerticalPanel().setId("emailInfoPanel");
-   if (emailSetting=="true") {
-     fileToEmailCheckBox.setVisible(true).setValue(true);
-     fileToEmailCheckBoxFalse.setVisible(false).setValue(true);
-     emailInfoPanel.setVisible(true);
+  if (emailSetting=="true") {
+    fileToEmailCheckBox.setVisible(true).setValue(true);
+    fileToEmailCheckBoxFalse.setVisible(false).setValue(true);
+    emailInfoPanel.setVisible(true);
   } else {
     fileToEmailCheckBox.setVisible(false).setValue(false);
     fileToEmailCheckBoxFalse.setVisible(true).setValue(false);
     emailInfoPanel.setVisible(false);
   }
-
-
-// more crazy trickery for checkboxes
   
- var fileUnCheckHandler = app.createClientHandler().forTargets(fileToFolderCheckBox, fileInfoPanel).setVisible(false)
-                                                    .forTargets(fileToFolderCheckBoxFalse).setVisible(true)
-                                                    .forTargets(fileToEmailCheckBox).setEnabled(false)
-                                                    .forTargets(fileToEmailCheckBoxFalse).setEnabled(false)
+  
+  // more crazy trickery for checkboxes
+  
+  var fileUnCheckHandler = app.createClientHandler().forTargets(fileToFolderCheckBox, fileInfoPanel).setVisible(false)
+  .forTargets(fileToFolderCheckBoxFalse).setVisible(true)
+  .forTargets(fileToEmailCheckBox).setEnabled(false)
+  .forTargets(fileToEmailCheckBoxFalse).setEnabled(false)
   var unSetCheck = app.createServerHandler('autoCrat_unsetFileCheck').addCallbackElement(fileToFolderCheckBox);
   var fileCheckHandler = app.createClientHandler().forTargets(fileToFolderCheckBox, fileInfoPanel).setVisible(true)
-                                                  .forTargets(fileToFolderCheckBoxFalse).setVisible(false)
-                                                  .forTargets(fileToEmailCheckBoxFalse).setEnabled(true)
-                                                  .forTargets(fileToEmailCheckBox).setEnabled(true);
+  .forTargets(fileToFolderCheckBoxFalse).setVisible(false)
+  .forTargets(fileToEmailCheckBoxFalse).setEnabled(true)
+  .forTargets(fileToEmailCheckBox).setEnabled(true);
   var setCheck = app.createServerHandler('autoCrat_setFileCheck').addCallbackElement(fileToFolderCheckBox);
   
   fileToFolderCheckBox.addClickHandler(unSetCheck).addClickHandler(fileUnCheckHandler);
@@ -402,27 +404,27 @@ var fileId = ScriptProperties.getProperty('fileId');
   panel.add(fileToFolderCheckBox); 
   panel.add(fileToFolderCheckBoxFalse);
   panel.add(fileInfoPanel);
-
-
- 
+  
+  
+  
   var emailUnCheckHandler = app.createClientHandler().forTargets(fileToEmailCheckBox, emailInfoPanel).setVisible(false)
-                                                    .forTargets(fileToEmailCheckBoxFalse).setVisible(true);
+  .forTargets(fileToEmailCheckBoxFalse).setVisible(true);
   var emailUnSetCheck = app.createServerHandler('autoCrat_unSetEmailCheck').addCallbackElement(fileToEmailCheckBox);
   var emailCheckHandler = app.createClientHandler().forTargets(fileToEmailCheckBox, emailInfoPanel).setVisible(true)
-                                                  .forTargets(fileToEmailCheckBoxFalse).setVisible(false);
+  .forTargets(fileToEmailCheckBoxFalse).setVisible(false);
   var emailSetCheck = app.createServerHandler('autoCrat_setEmailCheck').addCallbackElement(fileToEmailCheckBox);
   
   fileToEmailCheckBox.addClickHandler(emailUnSetCheck).addClickHandler(emailUnCheckHandler);
   fileToEmailCheckBoxFalse.addClickHandler(emailCheckHandler).addClickHandler(emailSetCheck);
-
+  
   if ((fileSetting == "false")||(!fileSetting)) {
-  fileToEmailCheckBox.setEnabled(false).setValue(false);
-  fileToEmailCheckBoxFalse.setEnabled(false).setValue(false);
+    fileToEmailCheckBox.setEnabled(false).setValue(false);
+    fileToEmailCheckBoxFalse.setEnabled(false).setValue(false);
   }
-
+  
   if (fileSetting == "true") {
-  fileToEmailCheckBox.setEnabled(true);
-  fileToEmailCheckBoxFalse.setEnabled(true);
+    fileToEmailCheckBox.setEnabled(true);
+    fileToEmailCheckBoxFalse.setEnabled(true);
   }
   
   emailInfoPanel.setStyleAttribute("width","100%");
@@ -441,7 +443,7 @@ var fileId = ScriptProperties.getProperty('fileId');
   panel.add(fileToEmailCheckBox); 
   panel.add(fileToEmailCheckBoxFalse);
   panel.add(emailInfoPanel);
-   
+  
   var formTrigger = ScriptProperties.getProperty('formTrigger');
   var mergeTriggerCheckBox = app.createCheckBox().setText("Trigger merge on form submit").setName("formTrigger");
   if (formTrigger=="true") {
@@ -449,7 +451,7 @@ var fileId = ScriptProperties.getProperty('fileId');
   }
   panel.add(mergeTriggerCheckBox); 
   panel.add(button);
-
+  
   //Help text below dynamically loads all field names from the sheet using normalized (camelCase) sheet headers
   var fieldHelpText = "Use these variables to include values from the spreadsheet in any of the fields below.";
   var fieldHelpLabel = app.createLabel().setText(fieldHelpText);
@@ -557,42 +559,41 @@ function autoCrat_saveRunSettings(e) {
   } 
   
   if (formTrigger=="true") {
-  var triggers = ScriptApp.getScriptTriggers();
-  var triggerSetFlag = false;
-  for (var i = 0; i<triggers.length; i++) {
-    var eventType = triggers[i].getEventType();
-    var triggerSource = triggers[i].getTriggerSource();
-    var handlerFunction = triggers[i].getHandlerFunction();
-    if ((handlerFunction=='autoCrat_onFormSubmit')&&(eventType=="ON_FORM_SUBMIT")&&(triggerSource=="SPREADSHEETS")) {
-      triggerSetFlag = true;
-      break;
+    var triggers = ScriptApp.getProjectTriggers();
+    var triggerSetFlag = false;
+    for (var i = 0; i<triggers.length; i++) {
+      var eventType = triggers[i].getEventType();
+      var handlerFunction = triggers[i].getHandlerFunction();
+      if ((handlerFunction=='autoCrat_onFormSubmit')&&(eventType=="ON_FORM_SUBMIT")) {
+        triggerSetFlag = true;
+        break;
+      }
+    }
+    if (triggerSetFlag==false) {
+      autoCrat_setFormTrigger();
     }
   }
-  if (triggerSetFlag==false) {
-    autoCrat_setFormTrigger();
-  }
-  }
-
-//Do a bunch of error handling stuff for all permutations of settings values that don't make sense
-
+  
+  //Do a bunch of error handling stuff for all permutations of settings values that don't make sense
+  
   if ((fileSetting=="false")&&(emailSetting=="false")) {
-      Browser.msgBox("You must select a merge type before you can run a merge job.");
-      autoCrat_runMergeConsole();
-      return;
+    Browser.msgBox("You must select a merge type before you can run a merge job.");
+    autoCrat_runMergeConsole();
+    return;
   }
-
+  
   if ((fileSetting=="true")&&(!fileNameString)) {
-       Browser.msgBox("If you are saving your merge job to Docs, you must set a file naming convention.");
-       autoCrat_runMergeConsole();
-       return;
-       }
+    Browser.msgBox("If you are saving your merge job to Docs, you must set a file naming convention.");
+    autoCrat_runMergeConsole();
+    return;
+  }
   
   if ((emailSetting=="true")&&(!emailString)) {
-       Browser.msgBox("If you want to email this merge job, you must set at least one recipient email address.");
-       autoCrat_runMergeConsole();
-       return;
-      }
- 
+    Browser.msgBox("If you want to email this merge job, you must set at least one recipient email address.");
+    autoCrat_runMergeConsole();
+    return;
+  }
+  
   ScriptProperties.setProperty('fileSetting',fileSetting);
   ScriptProperties.setProperty('fileNameString', fileNameString);
   ScriptProperties.setProperty('fileType', fileType);
@@ -603,7 +604,7 @@ function autoCrat_saveRunSettings(e) {
   ScriptProperties.setProperty('bodyPrefix', bodyPrefix);
   ScriptProperties.setProperty('emailAttachment', emailAttachment);
   ScriptProperties.setProperty('formTrigger', formTrigger);
-
+  
   if (destinationFolderId=="Select destination folder") {
     Browser.msgBox("You forgot to choose a destination folder for your merged Docs.");
     autoCrat_runMergeConsole();
@@ -647,9 +648,9 @@ function autoCrat_runMergePrompt() {
   refreshPanel.setId('refreshPanel');
   refreshPanel.setStyleAttribute("width", "100%");
   refreshPanel.setVisible(false);
-
-//Adds the graphic for the waiting period before merge completion. Set invisible until client handler
-//is called by button click 
+  
+  //Adds the graphic for the waiting period before merge completion. Set invisible until client handler
+  //is called by button click 
   var spinner = app.createImage(this.AUTOCRATIMAGEURL).setHeight("220px");
   spinner.setStyleAttribute("opacity", "1");
   spinner.setStyleAttribute("position", "absolute");
@@ -696,28 +697,29 @@ function autoCrat_exit(e) {
 // Script Properties.  This is the function that the Google Form submit trigger calls 
 
 function autoCrat_runMerge(preview) {
- var ssKey = ScriptProperties.getProperty('ssKey');
- var ss = SpreadsheetApp.openById(ssKey);
- autoCrat_removeTimeoutTrigger();
-//Do some more error handling just in case
- var fileId = ScriptProperties.getProperty('fileId');
+  var ssKey = ScriptProperties.getProperty('ssKey');
+  var ss = SpreadsheetApp.openById(ssKey);
+  var properties = ScriptProperties.getProperties();
+  autoCrat_removeTimeoutTrigger();
+  //Do some more error handling just in case
+  var fileId = properties.fileId;
   if (!fileId) { 
-       Browser.msgBox("You must select a template file before you can run a merge.");
-       autoCrat_defineTemplate();
-       return;
-       }
-  var mappingString = ScriptProperties.getProperty('mappingString');
+    Browser.msgBox("You must select a template file before you can run a merge.");
+    autoCrat_defineTemplate();
+    return;
+  }
+  var mappingString = properties.mappingString;
   if (!mappingString) {
-       Browser.msgBox("You must map document fields before you can run a merge.");
-       autoCrat_defineSettings();
-       return;
-       }
-  var sheetName = ScriptProperties.getProperty('sheetName');
+    Browser.msgBox("You must map document fields before you can run a merge.");
+    autoCrat_defineSettings();
+    return;
+  }
+  var sheetName = properties.sheetName;
   if (!sheetName) {
-       Browser.msgBox("You must select a source data sheet before you can run a merge.");
-       autoCrat_defineSettings();
-       return;
-       }
+    Browser.msgBox("You must select a source data sheet before you can run a merge.");
+    autoCrat_defineSettings();
+    return;
+  }
   
   var sheet = ss.getSheetByName(sheetName);
   var now = new Date();
@@ -733,41 +735,42 @@ function autoCrat_runMerge(preview) {
   var linkCol = headers.indexOf("Link to merged Doc");
   var urlCol = headers.indexOf("Merged Doc URL");
   var docIdCol = headers.indexOf("Merged Doc ID");
+  var copydownCol = headers.indexOf("Formula Copy Down Status");
   
   //status message will get concatenated as the logic tree progresses through the merge
   var mergeStatusMessage = "";
-
-  var fileSetting = ScriptProperties.getProperty('fileSetting');
-  var fileNameString = ScriptProperties.getProperty('fileNameString');
   
-  var linkToDoc = ScriptProperties.getProperty('linkToDoc');
+  var fileSetting = properties.fileSetting;
+  var fileNameString = properties.fileNameString;
+  
+  var linkToDoc = properties.linkToDoc;
   
   
   // error handling
   if ((!fileNameString)&&(fileSetting==true)) {
-       Browser.msgBox("You must set a file naming convention before you can run a merge.");
-       autoCrat_runMergeConsole();
-       return;
-       }
-
+    Browser.msgBox("You must set a file naming convention before you can run a merge.");
+    autoCrat_runMergeConsole();
+    return;
+  }
+  
   var testOnly = preview;
-
+  
   // avoids loading any stale settings from old file or email merges
   if (fileSetting == "true") {
-  var fileTypeSetting = ScriptProperties.getProperty('fileType');
-  var destFolderId = ScriptProperties.getProperty('destinationFolderId');
-  var secondaryFolderIdString = ScriptProperties.getProperty('secondaryFolderId');
-  var secondaryFolderIdArray = [];
+    var fileTypeSetting = properties.fileType;
+    var destFolderId = properties.destinationFolderId;
+    var secondaryFolderIdString = properties.secondaryFolderId;
+    var secondaryFolderIdArray = [];
     secondaryFolderIdString = secondaryFolderIdString.replace(/\s+/g, '');
     if ((secondaryFolderIdString)&&(secondaryFolderIdString!='')) {
       secondaryFolderIdArray = secondaryFolderIdString.split(",");
     }
   }
-  var emailSetting = ScriptProperties.getProperty('emailSetting');
+  var emailSetting = properties.emailSetting;
   if (emailSetting == "true") {
-  var emailString = ScriptProperties.getProperty('emailString'); 
-  var emailSubject = ScriptProperties.getProperty('emailSubject');
-  var emailAttachment = ScriptProperties.getProperty('emailAttachment');
+    var emailString = properties.emailString; 
+    var emailSubject = properties.emailSubject;
+    var emailAttachment = properties.emailAttachment;
   }
   var row2values = sheet.getRange(2,1,1,sheet.getLastColumn()).getValues()[0];
   if (row2values.indexOf("N/A: This is the formula row.")!=-1) {
@@ -793,12 +796,12 @@ function autoCrat_runMerge(preview) {
   //This folder will be kept if they select the shared Google Docs method
   if ((emailSetting == "true") && (fileSetting == "false")) {
     var tempFolderId = DocsList.createFolder('Merged Docs from' + now).getId();
-   }
+  }
   var count = 0;
   
   //Load conditions and mapping object
-  var conditionString = ScriptProperties.getProperty('mergeConditions');
-  var mappingString = ScriptProperties.getProperty('mappingString');
+  var conditionString = properties.mergeConditions;
+  var mappingString = properties.mappingString;
   var mappingObject = Utilities.jsonParse(mappingString);
   
   //Load in the range
@@ -810,183 +813,221 @@ function autoCrat_runMerge(preview) {
   
   //Commence the merge loop, run through sheet
   for (var i=1; i<lastRow; i++) {
-   var loopTime = new Date();
-   var timeElapsed = parseInt(loopTime - now);
+    var loopTime = new Date();
+    var timeElapsed = parseInt(loopTime - now);
     if (timeElapsed > 295000) {
       autoCrat_preemptTimeout();
       return;
     }
-   var rowValues = rowValueArray[i];
-   var rowFormats = rowFormatArray[i];
+    if  ((properties.copyDownFormulas=="true")&&(copydownCol==-1)) {
+      copydownCol = returnCopydownStatusColIndex()+1;
+      break;
+    }
+    if (((properties.copyDownFormulas=="true")||(copydownCol!=-1))&&(rowValueArray[i][copydownCol] == '')) {
+      copyDownFormulas(i+1, properties);
+      rowValueArray[i] = sheet.getRange(i+1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      rowFormatArray[i] = sheet.getRange(i+1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    }
     
-  //reload sheet to ensure status messages update
-   var sheet = ss.getSheetByName(sheetName);
- 
-  // Test conditions on this row
-   var conditionTest = autoCrat_evaluateConditions(conditionString, 0, rowValues, normalizedHeaders);
-  //Only run a merge for records that have no existing value in the last column ("Document Merge Status"), and that passes condition test
+    var rowValues = rowValueArray[i];
+    var rowFormats = rowFormatArray[i];
+    
+    //reload sheet to ensure status messages update
+    var sheet = ss.getSheetByName(sheetName);
+    
+    // Test conditions on this row
+    var conditionTest = autoCrat_evaluateConditions(conditionString, 0, rowValues, normalizedHeaders);
+    //Only run a merge for records that have no existing value in the last column ("Document Merge Status"), and that passes condition test
     if ((rowValues[statusCol]=="")&&(conditionTest==true)) {
       var sheet = ss.getSheetByName(sheetName);
-  
-    //First big branch in the merge logic: If file setting is true, do all necessary things 
-   if (fileSetting == "true") {
-     // custom function replaces "$variables" with values in a string
-     var fileName = autoCrat_replaceStringFields(fileNameString, rowValues, rowFormats, headers, mergeTags);
-     var secondaryFolderIds = [];
-     if (secondaryFolderIdArray.length>0) {
-       for (var z=0; z<secondaryFolderIdArray.length; z++) {
-         if (secondaryFolderIdArray[z].indexOf("$")!=-1) {
-           secondaryFolderIds.push(autoCrat_replaceStringFields(secondaryFolderIdArray[z], rowValues, rowFormats, headers, mergeTags));
-         } else {
-           secondaryFolderIds.push(secondaryFolderIdArray[z]);
-         }
-       }
-     }
-     //Google Doc created by default.  Custom function to replace all <<merge tags>> with mapped fields
-     var copyId = DocsList.getFileById(fileId).makeCopy(fileName).getId();
-     if (docIdCol!=-1) {
-       sheet.getRange(i+1, docIdCol+1, 1, 1).setValue(copyId);
-       SpreadsheetApp.flush();
-       rowValues = sheet.getRange(i+1, 1, 1, sheet.getLastColumn()).getValues()[0];
-     }
-     copyId = autoCrat_makeMergeDoc(copyId, rowValues, rowFormats, destFolderId, secondaryFolderIds, mergeFields, mappingObject);
-     try {
-       autoCrat_logDocCreation();
-     } catch(err) {
-     }
-
-     //PDF created only if set
-     if (fileTypeSetting == "PDF") {  
-       var pdfId = autoCrat_converToPdf(copyId, destFolderId, secondaryFolderIds); 
-       mergeStatusMessage += "PDF successfully created,"; 
-       autoCrat_trashDoc(copyId);
-       copyId = '';
-     } else {
-       mergeStatusMessage += 'Google ' + templateFileType + ' successfully created,'; 
-     }
-   }
-
-//handle the case where the email option is chosen without the save in docs option
-//set temporary file name and create the merged file in the temporary folder
-  if ((emailSetting == "true") && (fileSetting == "false")) {
-    var tempFileName = "Merged File #" + (i-1);
-    var copyId = DocsList.getFileById(fileId).makeCopy(tempFileName).getId();
-    var copyId = autoCrat_makeMergeDoc(copyId, rowValues, rowFormats, tempFolderId, secondaryFolderIds, mergeFields, mappingObject);
-  }
-  
-// 2nd major logic branch in merge
-  if (emailSetting == "true") {
-  try {
-    // replace $variables in strings
-     var recipients = autoCrat_replaceStringFields(emailString, rowValues, rowFormats, headers, mergeTags);
-    //remove whitespaces from email strings 
-    recipients = recipients.replace(/\s+/g, '');
-    //remove trailing commas from email strings
-    recipients = recipients.replace(/,$/,'');
-     var subject = autoCrat_replaceStringFields(emailSubject, rowValues, rowFormats, headers, mergeTags);
-     var bodyPrefix = ScriptProperties.getProperty('bodyPrefix');
-     var user = Session.getActiveUser().getUserLoginId();
-     bodyPrefix = autoCrat_replaceStringFields(bodyPrefix, rowValues, rowFormats, headers, mergeTags);
-    //Time to use a switch case. Woot!
-     switch (emailAttachment){    
-      case "PDF":
-         //Hard to grasp, but look to see if PDF already exists from file merge and use it if so
-         //attach the file and set email properties
-         if (pdfId) {
-            var attachment = DocsList.getFileById(pdfId);
-            var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has attached a PDF file to this email.</td><tr></table><br /><br />';
-            body += bodyPrefix;
-            MailApp.sendEmail(recipients, subject, body, {htmlBody: body, attachments: attachment});
-            mergeStatusMessage += "PDF attached in email to " + recipients;
-         }
-         // copyId should only exist if PDF option isn't selected in the file method
-         //attach the file and set email properties
-         if (copyId) {
-            var attachment = DocsList.getFileById(copyId).getAs("application/pdf");
-            attachment.setName(DocsList.getFileById(copyId).getName() + ".pdf");
-            var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has attached a PDF file to this email.</td><tr></table><br /><br />';
-            body += bodyPrefix;
-            MailApp.sendEmail(recipients, subject, body, {htmlBody: body, attachments: attachment});
-            mergeStatusMessage += "PDF attached in email to " + recipients;
-         }
-        break;
-         
-      case "Recipient-view-only Google Doc":
-           var file = DocsList.getFileById(copyId);
-         //add email recipients as doc viewers
-           file.addViewers(recipients.split(","));
-           var docUrl = file.getUrl();
-           var docTitle = file.getName();
-         // Add a little note on sharing as caring
-           var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has just shared this view-only Google ' + templateFileType + ' with you:</td><td><a href = "' + docUrl + '">' + docTitle + '</a></td></tr></table><br /><br />';
-           body += bodyPrefix;
-           MailApp.sendEmail(recipients, subject, body, {htmlBody: body});
-           mergeStatusMessage += " View-only " + templateFileType + " shared with " + recipients + " ";
-        break;
-         
-      case "Recipient-editable Google Doc":
-           var file = DocsList.getFileById(copyId);
-         //add email recipients as doc editors
-           file.addEditors(recipients.split(","));
-           var docUrl = file.getUrl();
-           var docTitle = file.getName();
-           var user = Session.getActiveUser().getUserLoginId();
-           var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has just shared this editable Google ' + templateFileType + ' with you:</td><td><a href = "' + docUrl + '">' +  docTitle + '</a></td></tr></table><br /><br />';
-           body += bodyPrefix;
-           MailApp.sendEmail(recipients, subject, body, {htmlBody: body});
-           mergeStatusMessage += " Editable " + templateFileType + " shared with " + recipients + " ";
-        break;
-      }
-      } catch(err) {
-        mergeStatusMessage += err;
-      }
-    }
       
-
- //Purge the file if user doesn't want it saved.
- //Leaves files that have been shared as docs in the temporary folder, unless
- //the user has specified the folder
- if ((emailSetting == "true") && (fileSetting == "false") && (emailAttachment=="PDF")){
-    mergeStatusMessage += ", file not saved in Docs."
-    autoCrat_trashDoc(copyId);
-  }
-  mergeStatusMessage += now;
+      //First big branch in the merge logic: If file setting is true, do all necessary things 
+      if (fileSetting == "true") {
+        // custom function replaces "$variables" with values in a string
+        var fileName = autoCrat_replaceStringFields(fileNameString, rowValues, rowFormats, headers, mergeTags);
+        var secondaryFolderIds = [];
+        if (secondaryFolderIdArray.length>0) {
+          for (var z=0; z<secondaryFolderIdArray.length; z++) {
+            if (secondaryFolderIdArray[z].indexOf("$")!=-1) {
+              secondaryFolderIds.push(autoCrat_replaceStringFields(secondaryFolderIdArray[z], rowValues, rowFormats, headers, mergeTags));
+            } else {
+              secondaryFolderIds.push(secondaryFolderIdArray[z]);
+            }
+          }
+        }
+        //Google Doc created by default.  Custom function to replace all <<merge tags>> with mapped fields
+        var copyId = DocsList.getFileById(fileId).makeCopy(fileName).getId();
+        if (docIdCol!=-1) {
+          sheet.getRange(i+1, docIdCol+1, 1, 1).setValue(copyId);
+          SpreadsheetApp.flush();
+          rowValues = sheet.getRange(i+1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        }
+        copyId = autoCrat_makeMergeDoc(copyId, rowValues, rowFormats, destFolderId, secondaryFolderIds, mergeFields, mappingObject);
+        try {
+          autoCrat_logDocCreation();
+        } catch(err) {
+        }
+        
+        //PDF created only if set
+        if (fileTypeSetting == "PDF") {  
+          var pdfId = autoCrat_converToPdf(copyId, destFolderId, secondaryFolderIds); 
+          mergeStatusMessage += "PDF successfully created,"; 
+          autoCrat_trashDoc(copyId);
+          copyId = '';
+        } else {
+          mergeStatusMessage += 'Google ' + templateFileType + ' successfully created,'; 
+        }
+      }
       
-  if ((linkToDoc=="true")&&((copyId)||(pdfId))) {  
-    var range1 = sheet.getRange(i+1, linkCol+1, 1, 1);
-    var range2 = sheet.getRange(i+1, urlCol+1, 1, 1);
-    var range3 = sheet.getRange(i+1, docIdCol+1, 1, 1);
-    var range4 = sheet.getRange(i+1, statusCol+1, 1, 1);
-    if (pdfId!='') {
-      var mergeFileId = pdfId;
+      //handle the case where the email option is chosen without the save in docs option
+      //set temporary file name and create the merged file in the temporary folder
+      if ((emailSetting == "true") && (fileSetting == "false")) {
+        var tempFileName = "Merged File #" + (i-1);
+        var copyId = DocsList.getFileById(fileId).makeCopy(tempFileName).getId();
+        var copyId = autoCrat_makeMergeDoc(copyId, rowValues, rowFormats, tempFolderId, secondaryFolderIds, mergeFields, mappingObject);
+      }
+      
+      // 2nd major logic branch in merge
+      if (emailSetting == "true") {
+        try {
+          // replace $variables in strings
+          var recipients = autoCrat_replaceStringFields(emailString, rowValues, rowFormats, headers, mergeTags);
+          //remove whitespaces from email strings 
+          recipients = recipients.replace(/\s+/g, '');
+          //remove trailing commas from email strings
+          recipients = recipients.replace(/,$/,'');
+          var subject = autoCrat_replaceStringFields(emailSubject, rowValues, rowFormats, headers, mergeTags);
+          var bodyPrefix = ScriptProperties.getProperty('bodyPrefix');
+          var user = Session.getActiveUser().getUserLoginId();
+          bodyPrefix = autoCrat_replaceStringFields(bodyPrefix, rowValues, rowFormats, headers, mergeTags);
+          //Time to use a switch case. Woot!
+          switch (emailAttachment){    
+            case "PDF":
+              //Hard to grasp, but look to see if PDF already exists from file merge and use it if so
+              //attach the file and set email properties
+              if (pdfId) {
+                var attachment = DocsList.getFileById(pdfId);
+                var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has attached a PDF file to this email.</td><tr></table><br /><br />';
+                body += bodyPrefix;
+                MailApp.sendEmail(recipients, subject, body, {htmlBody: body, attachments: attachment});
+                mergeStatusMessage += "PDF attached in email to " + recipients;
+              }
+              // copyId should only exist if PDF option isn't selected in the file method
+              //attach the file and set email properties
+              if (copyId) {
+                var attachment = DocsList.getFileById(copyId).getAs("application/pdf");
+                attachment.setName(DocsList.getFileById(copyId).getName() + ".pdf");
+                var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has attached a PDF file to this email.</td><tr></table><br /><br />';
+                body += bodyPrefix;
+                MailApp.sendEmail(recipients, subject, body, {htmlBody: body, attachments: attachment});
+                mergeStatusMessage += "PDF attached in email to " + recipients;
+              }
+              break;
+              
+            case "Recipient-view-only Google Doc":
+              var file = DocsList.getFileById(copyId);
+              //add email recipients as doc viewers
+              file.addViewers(recipients.split(","));
+              var docUrl = file.getUrl();
+              var docTitle = file.getName();
+              // Add a little note on sharing as caring
+              var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has just shared this view-only Google ' + templateFileType + ' with you:</td><td><a href = "' + docUrl + '">' + docTitle + '</a></td></tr></table><br /><br />';
+              body += bodyPrefix;
+              MailApp.sendEmail(recipients, subject, body, {htmlBody: body});
+              mergeStatusMessage += " view-only " + templateFileType + " shared with " + recipients + " ";
+              break;
+              
+            case "Recipient-editable Google Doc":
+              var file = DocsList.getFileById(copyId);
+              //add email recipients as doc editors
+              file.addEditors(recipients.split(","));
+              var docUrl = file.getUrl();
+              var docTitle = file.getName();
+              var user = Session.getActiveUser().getUserLoginId();
+              var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has just shared this editable Google ' + templateFileType + ' with you:</td><td><a href = "' + docUrl + '">' +  docTitle + '</a></td></tr></table><br /><br />';
+              body += bodyPrefix;
+              MailApp.sendEmail(recipients, subject, body, {htmlBody: body});
+              mergeStatusMessage += " editable " + templateFileType + " shared with " + recipients + " ";
+              break;
+              
+            case "Recipient-comment-only Google Doc":
+              var file = DriveApp.getFileById(copyId);
+              //add email recipients as doc editors
+              file.addCommenters(recipients.split(","));
+              var docUrl = file.getUrl();
+              var docTitle = file.getName();
+              var user = Session.getActiveUser().getUserLoginId();
+              var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has just shared this commentable Google ' + templateFileType + ' with you:</td><td><a href = "' + docUrl + '">' +  docTitle + '</a></td></tr></table><br /><br />';
+              body += bodyPrefix;
+              MailApp.sendEmail(recipients, subject, body, {htmlBody: body});
+              mergeStatusMessage += " commentable " + templateFileType + " shared with " + recipients + " ";
+              break;
+              
+            case "Publicly-viewable by link Google Doc":
+              var file = DriveApp.getFileById(copyId);
+              //add email recipients as doc editors
+              var access = DriveApp.Access.ANYONE_WITH_LINK;
+              var permission = DriveApp.Permission.VIEW;
+              file.setSharing(access, permission);
+              var docUrl = file.getUrl();
+              var docTitle = file.getName();
+              var user = Session.getActiveUser().getUserLoginId();
+              var body = '<table style="border:1px; padding:15px; background-color:#DDDDDD"><tr><td>' + user + ' has just shared this viewable Google ' + templateFileType + ' with you:</td><td><a href = "' + docUrl + '">' +  docTitle + '</a></td></tr></table><br /><br />';
+              body += bodyPrefix;
+              MailApp.sendEmail(recipients, subject, body, {htmlBody: body});
+              mergeStatusMessage += " Publicly viewable " + templateFileType + " (by link) sent to " + recipients + " ";
+              break;
+          }
+        } catch(err) {
+          mergeStatusMessage += err;
+        }
+      }
+      
+      
+      //Purge the file if user doesn't want it saved.
+      //Leaves files that have been shared as docs in the temporary folder, unless
+      //the user has specified the folder
+      if ((emailSetting == "true") && (fileSetting == "false") && (emailAttachment=="PDF")){
+        mergeStatusMessage += ", file not saved in Docs."
+        autoCrat_trashDoc(copyId);
+      }
+      mergeStatusMessage += now;
+      
+      if ((linkToDoc=="true")&&((copyId)||(pdfId))) {  
+        var range1 = sheet.getRange(i+1, linkCol+1, 1, 1);
+        var range2 = sheet.getRange(i+1, urlCol+1, 1, 1);
+        var range3 = sheet.getRange(i+1, docIdCol+1, 1, 1);
+        var range4 = sheet.getRange(i+1, statusCol+1, 1, 1);
+        if (pdfId!='') {
+          var mergeFileId = pdfId;
+        }
+        if (copyId!='') {
+          var mergeFileId = copyId;
+        }
+        var mergeFile = DocsList.getFileById(mergeFileId)
+        var url = mergeFile.getUrl();
+        var urlValue = [[url]];
+        var copyIdValue = [[mergeFileId]];
+        var mergeTitle = mergeFile.getName();
+        var link = [['=hyperlink("' + url + '", "' + mergeTitle + '")']];
+        var mergeStatusMessage = [[mergeStatusMessage]];
+        range1.setValues(link);
+        range2.setValues(urlValue);
+        range3.setValues(copyIdValue);
+        range4.setValues(mergeStatusMessage);
+      } else {
+        var range = sheet.getRange(i+1, statusCol+1);
+        range.setValue(mergeStatusMessage);
+      }    
+      mergeStatusMessage = "";
+      count = count+1;
     }
-    if (copyId!='') {
-      var mergeFileId = copyId;
+    if ((emailSetting == "true") && (fileSetting == "false") && (emailAttachment=="PDF")){
+      var folder = DocsList.getFolderById(tempFolderId);
+      folder.setTrashed(true);
     }
-    var mergeFile = DocsList.getFileById(mergeFileId)
-    var url = mergeFile.getUrl();
-    var urlValue = [[url]];
-    var copyIdValue = [[mergeFileId]];
-    var mergeTitle = mergeFile.getName();
-    var link = [['=hyperlink("' + url + '", "' + mergeTitle + '")']];
-    var mergeStatusMessage = [[mergeStatusMessage]];
-    range1.setValues(link);
-    range2.setValues(urlValue);
-    range3.setValues(copyIdValue);
-    range4.setValues(mergeStatusMessage);
-  } else {
-    var range = sheet.getRange(i+1, statusCol+1);
-    range.setValue(mergeStatusMessage);
-  }    
-  mergeStatusMessage = "";
-  count = count+1;
-}
-  if ((emailSetting == "true") && (fileSetting == "false") && (emailAttachment=="PDF")){
-var folder = DocsList.getFolderById(tempFolderId);
-    folder.setTrashed(true);
-}
     if ((testOnly=="true")&&(count>0)) { break; }
-}
+  }
   //Extra fancy merge completion confirmation
   //Even fancier: What would it take to have a progress bar embedded in the loop?
   if (count!=0) {
@@ -1003,16 +1044,16 @@ function autoCrat_replaceStringFields(string, rowValues, rowFormats, headers, me
   for (var i=0; i<headers.length; i++) {
     var thisHeader = headers[i];
     var colNum = autoCrat_getColumnNumberFromHeader(thisHeader, headers);
- if (((rowFormats[colNum-1]=="M/d/yyyy")||(rowFormats[colNum-1]=="MMMM d, yyyy")||(rowFormats[colNum-1]=="M/d/yyyy H:mm:ss"))&&(rowValues[colNum-1]!="")) {
-   try {
-      var replacementValue = Utilities.formatDate(rowValues[colNum-1], timeZone, rowFormats[colNum-1]);
+    if (((rowFormats[colNum-1]=="M/d/yyyy")||(rowFormats[colNum-1]=="MMMM d, yyyy")||(rowFormats[colNum-1]=="M/d/yyyy H:mm:ss"))&&(rowValues[colNum-1]!="")) {
+      try {
+        var replacementValue = Utilities.formatDate(rowValues[colNum-1], timeZone, rowFormats[colNum-1]);
       }
-   catch(err) {
-      var date = new Date(rowValues[colNum-1]);
-      var colVal = Utilities.formatDate(date, timeZone, rowFormats[colNum-1]);
+      catch(err) {
+        var date = new Date(rowValues[colNum-1]);
+        var colVal = Utilities.formatDate(date, timeZone, rowFormats[colNum-1]);
       }
     } else {
-     var replacementValue = rowValues[colNum-1];
+      var replacementValue = rowValues[colNum-1];
     }
     var replaceTag = mergeTags[i];
     replaceTag = replaceTag.replace("$","\\$") + "\\b";
@@ -1052,61 +1093,61 @@ function autoCrat_converToPdf (copyId, folderId, secondaryFolderIds) {
 
 //Trashes given docIdFind and replace
 function autoCrat_trashDoc (docId) {
-   DocsList.getFileById(docId).setTrashed(true);
+  DocsList.getFileById(docId).setTrashed(true);
 }
 
 
 function autoCrat_makeMergeDoc(copyId, rowValues, rowFormats, folderId, secondaryFolderIds, mergeFields, mappingObject) {
-   // Get document template, copy it as a new temp doc, and save the Doc’s id
+  // Get document template, copy it as a new temp doc, and save the Doc’s id
   var fileType = DocsList.getFileById(copyId).getFileType().toString();
   if ((fileType=="document")||(fileType=="DOCUMENT")) { 
-   // Open the temporary document
-   var copyDoc = DocumentApp.openById(copyId);
-   // Get the document’s body section
-   var copyHeader = copyDoc.getHeader();
-   var copyBody = copyDoc.getActiveSection();
-   var copyFooter = copyDoc.getFooter();
-   // Get the mappingString
-   for (i in mappingObject) {
-   };
-  for (i=0; i< mergeFields.length; i++) {
-     var normalizedFieldName = autoCrat_normalizeHeader(mergeFields[i]);
-     var colNum = mappingObject[normalizedFieldName];
-     var timeZone = Session.getTimeZone();
-    if ((rowFormats[colNum-1]=="M/d/yyyy")||(rowFormats[colNum-1]=="MMMM d, yyyy")||(rowFormats[colNum-1]=="M/d/yyyy H:mm:ss")) {
-      try {
-     var colVal = Utilities.formatDate(rowValues[colNum-1], timeZone, rowFormats[colNum-1]);
+    // Open the temporary document
+    var copyDoc = DocumentApp.openById(copyId);
+    // Get the document’s body section
+    var copyHeader = copyDoc.getHeader();
+    var copyBody = copyDoc.getActiveSection();
+    var copyFooter = copyDoc.getFooter();
+    // Get the mappingString
+    for (i in mappingObject) {
+    };
+    for (i=0; i< mergeFields.length; i++) {
+      var normalizedFieldName = autoCrat_normalizeHeader(mergeFields[i]);
+      var colNum = mappingObject[normalizedFieldName];
+      var timeZone = Session.getTimeZone();
+      if ((rowFormats[colNum-1]=="M/d/yyyy")||(rowFormats[colNum-1]=="MMMM d, yyyy")||(rowFormats[colNum-1]=="M/d/yyyy H:mm:ss")) {
+        try {
+          var colVal = Utilities.formatDate(rowValues[colNum-1], timeZone, rowFormats[colNum-1]);
+        }
+        catch(err) {
+          var date = new Date(rowValues[colNum-1]);
+          var colVal = Utilities.formatDate(date, timeZone, rowFormats[colNum-1]);
+        }
+      } else {
+        var colVal = rowValues[colNum-1];
       }
-      catch(err) {
-      var date = new Date(rowValues[colNum-1]);
-      var colVal = Utilities.formatDate(date, timeZone, rowFormats[colNum-1]);
+      if (copyHeader) {
+        copyHeader.replaceText(mergeFields[i], colVal);
       }
-    } else {
-     var colVal = rowValues[colNum-1];
+      if (copyBody) {
+        copyBody.replaceText(mergeFields[i], colVal);
+      }
+      if (copyFooter) {
+        copyFooter.replaceText(mergeFields[i], colVal);
+      }
     }
-   if (copyHeader) {
-     copyHeader.replaceText(mergeFields[i], colVal);
-     }
-   if (copyBody) {
-     copyBody.replaceText(mergeFields[i], colVal);
-     }
-   if (copyFooter) {
-     copyFooter.replaceText(mergeFields[i], colVal);
-     }
-    }
-  
-// Save and close the temporary document
-   copyDoc.saveAndClose();
+    
+    // Save and close the temporary document
+    copyDoc.saveAndClose();
   }
   if ((fileType=="spreadsheet")||(fileType=="SPREADSHEET")) {
     var exp = new RegExp(/[<]{2,}\S[^,]*?[>]{2,}/g);
     var ss = SpreadsheetApp.openById(copyId);
     var sheets = ss.getSheets();
     for (var i=0; i<sheets.length; i++) {
-     var range = sheets[i].getDataRange();
-     var values = range.getValues();
-     var formulas = range.getFormulas();
-     var formats = range.getNumberFormats();
+      var range = sheets[i].getDataRange();
+      var values = range.getValues();
+      var formulas = range.getFormulas();
+      var formats = range.getNumberFormats();
       for (var j=0; j<values.length; j++) {
         for (var k=0; k<values[j].length; k++) {
           var cellValue = values[j][k].toString();
@@ -1116,19 +1157,19 @@ function autoCrat_makeMergeDoc(copyId, rowValues, rowFormats, folderId, secondar
             for (var n=0; n<tags.length; n++) {
               var normalizedFieldName = autoCrat_normalizeHeader(tags[n]);
               var colNum = mappingObject[normalizedFieldName];
-                var timeZone = Session.getTimeZone();
-                if ((rowFormats[colNum-1]=="M/d/yyyy")||(rowFormats[colNum-1]=="MMMM d, yyyy")||(rowFormats[colNum-1]=="M/d/yyyy H:mm:ss")) {
-                  try {
-                    var colVal = Utilities.formatDate(rowValues[colNum-1], timeZone, rowFormats[colNum-1]);
-                    formats[j][k] = rowFormats[colNum-1];
-                  } catch(err) {
-                    var date = new Date(rowValues[colNum-1]);
-                    var colVal = Utilities.formatDate(date, timeZone, rowFormats[colNum-1]);
-                    formats[j][k] = rowFormats[colNum-1];
-                  }
-                  } else {
-                    var colVal = rowValues[colNum-1];
-                  }
+              var timeZone = Session.getTimeZone();
+              if ((rowFormats[colNum-1]=="M/d/yyyy")||(rowFormats[colNum-1]=="MMMM d, yyyy")||(rowFormats[colNum-1]=="M/d/yyyy H:mm:ss")) {
+                try {
+                  var colVal = Utilities.formatDate(rowValues[colNum-1], timeZone, rowFormats[colNum-1]);
+                  formats[j][k] = rowFormats[colNum-1];
+                } catch(err) {
+                  var date = new Date(rowValues[colNum-1]);
+                  var colVal = Utilities.formatDate(date, timeZone, rowFormats[colNum-1]);
+                  formats[j][k] = rowFormats[colNum-1];
+                }
+              } else {
+                var colVal = rowValues[colNum-1];
+              }
               if ((cellFormula)&&(cellFormula!='')) {
                 cellFormula = cellFormula.replace(tags[n],colVal);
                 formulas[j][k] = cellFormula;
@@ -1167,7 +1208,7 @@ function autoCrat_makeMergeDoc(copyId, rowValues, rowFormats, folderId, secondar
   }
   // remove from Drive 
   file.removeFromFolder(DocsList.getRootFolder());
-   return copyId;
+  return copyId;
 }
 
 
@@ -1208,36 +1249,36 @@ function autoCrat_mapFields() {
   // go to file to look for all unique <<mergefields>>
   var docFieldNames = autoCrat_fetchDocFields(fileId);
   if (!docFieldNames) { 
-     Browser.msgBox('The selected template contains no merge field tags..eg. <<merge field>>');
-     app.close();
-     autoCrat_defineTemplate();
+    Browser.msgBox('The selected template contains no merge field tags..eg. <<merge field>>');
+    app.close();
+    autoCrat_defineTemplate();
   }
   //fetch data sheet from user-determined property
   var sheetName = ScriptProperties.getProperty('sheetName');
-    //If not set send user straight to settings UI
-    if (!sheetName) {
+  //If not set send user straight to settings UI
+  if (!sheetName) {
     Browser.msgBox("You need to choose a template file before you can run a merge!");
     app.close();
     autoCrat_defineTemplate(); 
-   }
+  }
   //go to data sheet and return all header names
   var sheetFieldNames = autoCrat_fetchSheetHeaders(sheetName);
-
+  
   if ((docFieldNames)&&(sheetFieldNames)) {
-  //resize grid to fit number of unique fields in template
-  grid.resize(docFieldNames.length+1, 2);
-  //grab already-saved mappings, if they exist.  This is saved as a JSON-like string
-  var mappingString = ScriptProperties.getProperty("mappingString");
-  var mappingObject = Utilities.jsonParse(mappingString);
-  //build Ui elements and assign indexed IDs and names
-  // this technique allow the UI to expand to fit the number of tags in the template
+    //resize grid to fit number of unique fields in template
+    grid.resize(docFieldNames.length+1, 2);
+    //grab already-saved mappings, if they exist.  This is saved as a JSON-like string
+    var mappingString = ScriptProperties.getProperty("mappingString");
+    var mappingObject = Utilities.jsonParse(mappingString);
+    //build Ui elements and assign indexed IDs and names
+    // this technique allow the UI to expand to fit the number of tags in the template
     for (i=0; i<docFieldNames.length; i++) {
       var label = app.createLabel().setId("mergefield-" + i).setText(docFieldNames[i]);
       var listBox = app.createListBox().setId("header-" + i).setName("header-" + i);
       listBox.addItem("Choose column");
-    for (j=0; j<sheetFieldNames.length; j++) {
-      listBox.addItem(sheetFieldNames[j]);
-    }
+      for (j=0; j<sheetFieldNames.length; j++) {
+        listBox.addItem(sheetFieldNames[j]);
+      }
       var fieldName = autoCrat_normalizeHeader(docFieldNames[i]);
       var thisDocFieldName = docFieldNames[i].replace("<<","");
       thisDocFieldName = thisDocFieldName.replace(">>","");
@@ -1249,48 +1290,48 @@ function autoCrat_mapFields() {
           var itemNo = parseInt(mappingObject[fieldName]);
         } 
         if (!mappingObject[fieldName]) { ScriptProperties.setProperty('mappingString',''); break;}  
-    } else {
-      var itemNo = 0;
-      for (var m=0; m<sheetFieldNames.length; m++) {
-        var sheetFieldName = autoCrat_normalizeHeader(sheetFieldNames[m]);
-        if ((fieldName==sheetFieldName)||(thisDocFieldName==sheetFieldName)) {
-          itemNo = m+1;
-          break;
+      } else {
+        var itemNo = 0;
+        for (var m=0; m<sheetFieldNames.length; m++) {
+          var sheetFieldName = autoCrat_normalizeHeader(sheetFieldNames[m]);
+          if ((fieldName==sheetFieldName)||(thisDocFieldName==sheetFieldName)) {
+            itemNo = m+1;
+            break;
+          }
         }
       }
-    }
       listBox.setSelectedIndex(itemNo); 
       grid.setWidget(i,0,label);
       grid.setStyleAttribute(i, 0, "background", "#F5F5F5");
-    grid.setStyleAttribute(i, 0, "width", "50%");
-    grid.setStyleAttribute(i, 0, "textAlign", "right");
-    grid.setWidget(i,1,listBox);
-    grid.setStyleAttribute(i, 1, "background", "#F5F5F5");
-    grid.setStyleAttribute(i, 0, "width", "50%");
+      grid.setStyleAttribute(i, 0, "width", "50%");
+      grid.setStyleAttribute(i, 0, "textAlign", "right");
+      grid.setWidget(i,1,listBox);
+      grid.setStyleAttribute(i, 1, "background", "#F5F5F5");
+      grid.setStyleAttribute(i, 0, "width", "50%");
+    }
+    
+    var spinner = app.createImage(AUTOCRATIMAGEURL).setWidth(150);
+    spinner.setVisible(false);
+    spinner.setStyleAttribute("position", "absolute");
+    spinner.setStyleAttribute("top", "100px");
+    spinner.setStyleAttribute("left", "200px");
+    spinner.setId("dialogspinner");
+    
+    var clientHandler = app.createClientHandler().forTargets(spinner).setVisible(true).forTargets(panel).setStyleAttribute("opacity", "0.5");
+    var sendHandler = app.createServerHandler('autoCrat_saveMappings').addCallbackElement(grid);
+    var button = app.createButton().setId("mappingSubmitButton").addClickHandler(sendHandler).addClickHandler(clientHandler);
+    button.setText("Save mappings");
+    grid.setWidget(i, 0, app.createLabel().setText("Important: These mappings will hold true only if you don't modify the order of columns in the sheet. \n Dates must be formatted as \"M/d/yyyy\", \"MMMM d, yyyy\", or \"M/d/yyyy H:mm:ss\" using number formats in the spreadsheet").setStyleAttribute("fontSize","9px"));
+    grid.setWidget(i, 1, button);
+    panel.setStyleAttribute('overflow', 'scroll');
+    panel.setHeight("330px");
+    panel.add(grid);
+    app.add(helpPopup);
+    app.add(topGrid);
+    app.add(panel);
+    app.add(spinner);
+    ss.show(app);
   }
-  
-  var spinner = app.createImage(AUTOCRATIMAGEURL).setWidth(150);
-  spinner.setVisible(false);
-  spinner.setStyleAttribute("position", "absolute");
-  spinner.setStyleAttribute("top", "100px");
-  spinner.setStyleAttribute("left", "200px");
-  spinner.setId("dialogspinner");
-  
-  var clientHandler = app.createClientHandler().forTargets(spinner).setVisible(true).forTargets(panel).setStyleAttribute("opacity", "0.5");
-  var sendHandler = app.createServerHandler('autoCrat_saveMappings').addCallbackElement(grid);
-  var button = app.createButton().setId("mappingSubmitButton").addClickHandler(sendHandler).addClickHandler(clientHandler);
-  button.setText("Save mappings");
-  grid.setWidget(i, 0, app.createLabel().setText("Important: These mappings will hold true only if you don't modify the order of columns in the sheet. \n Dates must be formatted as \"M/d/yyyy\", \"MMMM d, yyyy\", or \"M/d/yyyy H:mm:ss\" using number formats in the spreadsheet").setStyleAttribute("fontSize","9px"));
-  grid.setWidget(i, 1, button);
-  panel.setStyleAttribute('overflow', 'scroll');
-  panel.setHeight("330px");
-  panel.add(grid);
-  app.add(helpPopup);
-  app.add(topGrid);
-  app.add(panel);
-  app.add(spinner);
-  ss.show(app);
-}
 }
 
 // saves Field mappings to script properties
@@ -1313,12 +1354,12 @@ function autoCrat_saveMappings(e) {
       var errorFlag=true; 
     }    
     if (header) {
-    column = autoCrat_getColumnNumberFromHeader(header, headers);
-    var fieldName = docFieldNames[i];
+      column = autoCrat_getColumnNumberFromHeader(header, headers);
+      var fieldName = docFieldNames[i];
       if (fieldName) {
-         var fieldName = autoCrat_normalizeHeader(fieldName);
+        var fieldName = autoCrat_normalizeHeader(fieldName);
       }
-    mappingString += '"' + fieldName + '" : "' + column + '", '; 
+      mappingString += '"' + fieldName + '" : "' + column + '", '; 
     }
   } 
   mappingString += "}";
@@ -1328,16 +1369,16 @@ function autoCrat_saveMappings(e) {
   
   ScriptProperties.setProperty('mappingString', mappingString);
   if (errorFlag==true) {
-     Browser.msgBox("You forgot to assign a column to one or more of your mergefields."); 
-     autoCrat_mapFields(); 
-     return;
+    Browser.msgBox("You forgot to assign a column to one or more of your mergefields."); 
+    autoCrat_mapFields(); 
+    return;
   }
-   autoCrat_initialize();
+  autoCrat_initialize();
   if (!(ScriptProperties.getProperty('fileSetting'))||!(ScriptProperties.getProperty('emailSetting'))) {
-   autoCrat_runMergeConsole();
+    autoCrat_runMergeConsole();
   }
-   app.close();
-   return app;
+  app.close();
+  return app;
 }
 
 
@@ -1363,7 +1404,7 @@ function autoCrat_normalizeHeaders(headers) {
   }
   return keys;
 }
- 
+
 // Normalizes a string, by removing all alphanumeric characters and using mixed case
 // to separate words. The output will always start with a lower case letter.
 // This function is designed to produce JavaScript object property names.
@@ -1435,7 +1476,7 @@ function autoCrat_isCellEmpty(cellData) {
 function autoCrat_isAlnum(char) {
   return char >= 'A' && char <= 'Z' ||
     char >= 'a' && char <= 'z' ||
-    autoCrat_isDigit(char);
+      autoCrat_isDigit(char);
 }
 
 // Returns true if the character char is a digit, false otherwise.
@@ -1453,18 +1494,18 @@ function autoCrat_arrayTranspose(data) {
   if (data.length == 0 || data[0].length == 0) {
     return null;
   }
-
+  
   var ret = [];
   for (var i = 0; i < data[0].length; ++i) {
     ret.push([]);
   }
-
+  
   for (var i = 0; i < data.length; ++i) {
     for (var j = 0; j < data[i].length; ++j) {
       ret[j][i] = data[i][j];
     }
   }
-
+  
   return ret;
 }
 
@@ -1482,135 +1523,135 @@ function autoCrat_fetchSheetHeaders(sheetName) {
   }
   return headers;
 }
- 
+
 //Grabs any <<Merge Tags>> from a document 
 function autoCrat_fetchDocFields(fileId) {
   var fileType = DocsList.getFileById(fileId).getFileType().toString();
   if ((fileType=="DOCUMENT")||(fileType=="document")) { 
-  var template = DocumentApp.openById(fileId);
-  var title = template.getName();
-  var fieldExp = "[<]{2,}\\S[^,]*?[>]{2,}";
-  var result;
-  var matchResults = new Array();
-  var headerFieldNames = new Array();
-  var bodyFieldNames = new Array();
-  var footerFieldNames = new Array();
-  
-  //get all tags in doc header
-  var header = template.getHeader();
-  if (header!=null) { matchResults[0] = header.findText(fieldExp);}
-  if (matchResults[0]!=null){
-  var element = matchResults[0].getElement().asText().getText();
-  var start = matchResults[0].getStartOffset()
-  var end = matchResults[0].getEndOffsetInclusive()+1;
-  var length = end-start;
-  headerFieldNames[0] = element.substr(start,length)
-    var i = 0;
-    while (headerFieldNames[i]) {
-      matchResults[i+1] = template.getHeader().findText(fieldExp, matchResults[i]);
-      if (matchResults[i+1]) {
-      var element = matchResults[i+1].getElement().asText().getText();
-      var start = matchResults[i+1].getStartOffset()
-      var end = matchResults[i+1].getEndOffsetInclusive()+1;
+    var template = DocumentApp.openById(fileId);
+    var title = template.getName();
+    var fieldExp = "[<]{2,}\\S[^,]*?[>]{2,}";
+    var result;
+    var matchResults = new Array();
+    var headerFieldNames = new Array();
+    var bodyFieldNames = new Array();
+    var footerFieldNames = new Array();
+    
+    //get all tags in doc header
+    var header = template.getHeader();
+    if (header!=null) { matchResults[0] = header.findText(fieldExp);}
+    if (matchResults[0]!=null){
+      var element = matchResults[0].getElement().asText().getText();
+      var start = matchResults[0].getStartOffset()
+      var end = matchResults[0].getEndOffsetInclusive()+1;
       var length = end-start;
-      headerFieldNames[i+1] = element.substr(start,length);
+      headerFieldNames[0] = element.substr(start,length)
+      var i = 0;
+      while (headerFieldNames[i]) {
+        matchResults[i+1] = template.getHeader().findText(fieldExp, matchResults[i]);
+        if (matchResults[i+1]) {
+          var element = matchResults[i+1].getElement().asText().getText();
+          var start = matchResults[i+1].getStartOffset()
+          var end = matchResults[i+1].getEndOffsetInclusive()+1;
+          var length = end-start;
+          headerFieldNames[i+1] = element.substr(start,length);
+        }
+        i++;
       }
-      i++;
-    }
     }
     
-   //get all tags in doc body
-  matchResults = [];
-  var body = template.getActiveSection();
-  if (body!=null) { matchResults[0] = body.findText(fieldExp);}
-  if (matchResults[0]!=null){
-  var element = matchResults[0].getElement().asText().getText();
-  var start = matchResults[0].getStartOffset()
-  var end = matchResults[0].getEndOffsetInclusive()+1;
-  var length = end-start;
-  bodyFieldNames[0] = element.substr(start,length)
-   var i = 0;
-    while (bodyFieldNames[i]) {
-      matchResults[i+1] = template.getActiveSection().findText(fieldExp, matchResults[i]);
-      if (matchResults[i+1]) {
-      var element = matchResults[i+1].getElement().asText().getText();
-      var start = matchResults[i+1].getStartOffset()
-      var end = matchResults[i+1].getEndOffsetInclusive()+1;
+    //get all tags in doc body
+    matchResults = [];
+    var body = template.getActiveSection();
+    if (body!=null) { matchResults[0] = body.findText(fieldExp);}
+    if (matchResults[0]!=null){
+      var element = matchResults[0].getElement().asText().getText();
+      var start = matchResults[0].getStartOffset()
+      var end = matchResults[0].getEndOffsetInclusive()+1;
       var length = end-start;
-      bodyFieldNames[i+1] = element.substr(start,length);
+      bodyFieldNames[0] = element.substr(start,length)
+      var i = 0;
+      while (bodyFieldNames[i]) {
+        matchResults[i+1] = template.getActiveSection().findText(fieldExp, matchResults[i]);
+        if (matchResults[i+1]) {
+          var element = matchResults[i+1].getElement().asText().getText();
+          var start = matchResults[i+1].getStartOffset()
+          var end = matchResults[i+1].getEndOffsetInclusive()+1;
+          var length = end-start;
+          bodyFieldNames[i+1] = element.substr(start,length);
+        }
+        i++;
       }
-      i++;
-     }
     }
     
-   //get all tags in doc footer
-  var matchResults = [];
-  var footer = template.getFooter();
-  if (footer!=null) { matchResults[0] = footer.findText(fieldExp);}
-  if (matchResults[0]!=null){
-  var element = matchResults[0].getElement().asText().getText();
-  var start = matchResults[0].getStartOffset()
-  var end = matchResults[0].getEndOffsetInclusive()+1;
-  var length = end-start;
-  footerFieldNames[0] = element.substr(start,length)
-    var i = 0;
-    while (footerFieldNames[i]) {
-      matchResults[i+1] = template.getFooter().findText(fieldExp, matchResults[i]);
-      if (matchResults[i+1]) {
-      var element = matchResults[i+1].getElement().asText().getText();
-      var start = matchResults[i+1].getStartOffset()
-      var end = matchResults[i+1].getEndOffsetInclusive()+1;
+    //get all tags in doc footer
+    var matchResults = [];
+    var footer = template.getFooter();
+    if (footer!=null) { matchResults[0] = footer.findText(fieldExp);}
+    if (matchResults[0]!=null){
+      var element = matchResults[0].getElement().asText().getText();
+      var start = matchResults[0].getStartOffset()
+      var end = matchResults[0].getEndOffsetInclusive()+1;
       var length = end-start;
-      footerFieldNames[i+1] = element.substr(start,length);
+      footerFieldNames[0] = element.substr(start,length)
+      var i = 0;
+      while (footerFieldNames[i]) {
+        matchResults[i+1] = template.getFooter().findText(fieldExp, matchResults[i]);
+        if (matchResults[i+1]) {
+          var element = matchResults[i+1].getElement().asText().getText();
+          var start = matchResults[i+1].getStartOffset()
+          var end = matchResults[i+1].getEndOffsetInclusive()+1;
+          var length = end-start;
+          footerFieldNames[i+1] = element.substr(start,length);
+        }
+        i++;
       }
-      i++;
-     }
     }
-  var fieldNames = headerFieldNames.concat(bodyFieldNames, footerFieldNames);
-  fieldNames = autoCrat_removeDuplicateElement(fieldNames);
- return fieldNames; 
-}
-if ((fileType=="SPREADSHEET")||(fileType=="spreadsheet")) {
-  var ss = SpreadsheetApp.openById(fileId);
-  var sheets = ss.getSheets();
-  var allTags = [];
-  for (var i=0; i<sheets.length; i++) {
-    var range = sheets[i].getDataRange();
-    var values = range.getValues();
-    for (var j=0; j<values.length; j++) {
-      for (var k=0; k<values[j].length; k++) {
-        var cellValue = values[j][k].toString();
-        var exp = new RegExp(/[<]{2,}\S[^,]*?[>]{2,}/g);
-        var tags = cellValue.match(exp);
-        if (tags) {
-          for (var l=0; l<tags.length; l++) {
-            allTags.push(tags[l]);
+    var fieldNames = headerFieldNames.concat(bodyFieldNames, footerFieldNames);
+    fieldNames = autoCrat_removeDuplicateElement(fieldNames);
+    return fieldNames; 
+  }
+  if ((fileType=="SPREADSHEET")||(fileType=="spreadsheet")) {
+    var ss = SpreadsheetApp.openById(fileId);
+    var sheets = ss.getSheets();
+    var allTags = [];
+    for (var i=0; i<sheets.length; i++) {
+      var range = sheets[i].getDataRange();
+      var values = range.getValues();
+      for (var j=0; j<values.length; j++) {
+        for (var k=0; k<values[j].length; k++) {
+          var cellValue = values[j][k].toString();
+          var exp = new RegExp(/[<]{2,}\S[^,]*?[>]{2,}/g);
+          var tags = cellValue.match(exp);
+          if (tags) {
+            for (var l=0; l<tags.length; l++) {
+              allTags.push(tags[l]);
+            }
           }
         }
       }
     }
+    allTags = autoCrat_removeDuplicateElement(allTags);
+    return allTags;
   }
-  allTags = autoCrat_removeDuplicateElement(allTags);
-  return allTags;
 }
-}
-  
+
 
 //Takes out any duplicates from an array of values
 function autoCrat_removeDuplicateElement(arrayName)
-  {
+{
   var newArray=new Array();
   label:for(var i=0; i<arrayName.length;i++ )
   {  
-  for(var j=0; j<newArray.length;j++ )
-  {
-  if(newArray[j]==arrayName[i]) 
-  continue label;
-  }
-  newArray[newArray.length] = arrayName[i];
+    for(var j=0; j<newArray.length;j++ )
+    {
+      if(newArray[j]==arrayName[i]) 
+        continue label;
+    }
+    newArray[newArray.length] = arrayName[i];
   }
   return newArray;
-  }
+}
 
 
 //Set merge conditions
@@ -1627,9 +1668,9 @@ function autoCrat_setMergeConditions() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sourceSheetName = ScriptProperties.getProperty('sheetName');
   if ((sourceSheetName)&&(sourceSheetName!='')) {
-     var sourceSheet = ss.getSheetByName(sourceSheetName);
+    var sourceSheet = ss.getSheetByName(sourceSheetName);
   } else {
-     var sourceSheet = ss.getSheets()[0];
+    var sourceSheet = ss.getSheets()[0];
   }
   var lastCol = sourceSheet.getLastColumn();
   var headers = autoCrat_fetchSheetHeaders(sourceSheetName);
@@ -1640,7 +1681,7 @@ function autoCrat_setMergeConditions() {
   }
   for (var i=0; i<headers.length; i++) {
     if ((headers[i]!="Status")) {
-    dropdown.addItem(headers[i]);
+      dropdown.addItem(headers[i]);
     }
   }
   var equalsLabel = app.createLabel('equals');
@@ -1692,7 +1733,7 @@ function autoCrat_saveCondition(e) {
   var conditionString = Utilities.jsonStringify(conditionObject);
   ScriptProperties.setProperty('mergeConditions', conditionString);
   if(!(ScriptProperties.getProperty("mappingString"))||(ScriptProperties.getProperty("mappingString")=="")) {
-     autoCrat_mapFields();
+    autoCrat_mapFields();
   }
   app.close();
   return app;
@@ -1702,47 +1743,47 @@ function autoCrat_saveCondition(e) {
 //returns true if testval meets the condition 
 function autoCrat_evaluateConditions(condString, index, rowData, normalizedHeaders) {
   if ((condString)&&(condString!='')) {
-  var condObject = Utilities.jsonParse(condString);
-  var i = index;
-  var testHeader = autoCrat_normalizeHeader(condObject["col-"+i]);
-   var colNum = -1;
-  for (var j=0; j < normalizedHeaders.length; j++) {
-    if (normalizedHeaders[j]==testHeader) {
-      colNum = j;
-      break;
+    var condObject = Utilities.jsonParse(condString);
+    var i = index;
+    var testHeader = autoCrat_normalizeHeader(condObject["col-"+i]);
+    var colNum = -1;
+    for (var j=0; j < normalizedHeaders.length; j++) {
+      if (normalizedHeaders[j]==testHeader) {
+        colNum = j;
+        break;
+      }
     }
-  }
-  if (colNum == -1) {
-    Browser.msgBox("Something is wrong with the merge conditions. Try resetting.");
-    return;
-  }
-  var testVal = rowData[colNum];
-  var value = condObject["val-"+i];
-  var output = false;
-  switch(value)
-  {
-  case "":
-      output = true;
-      break;
-  case "NULL":
-      if((!testVal)||(testVal=='')) {
+    if (colNum == -1) {
+      Browser.msgBox("Something is wrong with the merge conditions. Try resetting.");
+      return;
+    }
+    var testVal = rowData[colNum];
+    var value = condObject["val-"+i];
+    var output = false;
+    switch(value)
+    {
+      case "":
         output = true;
-      }  
-    break;
-  case "NOT NULL":
-    if((testVal)&&(testVal!='')) {
-        output = true;
-      }  
-    break;
-  default:
-    if(testVal==value) {
-        output = true;
-      }  
+        break;
+      case "NULL":
+        if((!testVal)||(testVal=='')) {
+          output = true;
+        }  
+        break;
+      case "NOT NULL":
+        if((testVal)&&(testVal!='')) {
+          output = true;
+        }  
+        break;
+      default:
+        if(testVal==value) {
+          output = true;
+        }  
+    }
+    return output;
+  } else {
+    return true;
   }
-  return output;
-} else {
-  return true;
-}
 }
 
 
@@ -1798,58 +1839,58 @@ function isNumber(n) {
 
 
 function refreshTemplatePanel(fileId) {
-    var app = UiApp.getActiveApplication();
-    var panel = app.getElementById("panel");
-    var spinner = app.getElementById("dialogspinner");
-    panel.clear();
-    var image = app.createImage("https://c04a7a5e-a-3ab37ab8-s-sites.googlegroups.com/a/newvisions.org/data-dashboard/searchable-docs-collection/download.png?attachauth=ANoY7cpTRdoqkEnOB2Godog9PVqEFovv__DxSqM02KnW3_FNFZZA0CneTMejWaPWWA01AOVfgHhAhYkUkBUfiZQbUm4DiYo82xjSIEYxokxpeHPWChhsI8TetLMKMn7V8inAH7HMCgogCUc5yEtVHUJkus-FbCBGvYmi9KKozeA9cFSu7Q962YAUPp2ft86FC5kMdic_npgrxnaoERIXO6Iw0GUI04KmXseVg4sBioo33Ezz_14u9WPB5TqBW4x6MmSJ1I514Zw3&attredirects=0");
-    panel.setStyleAttribute('opacity','1');
-    spinner.setVisible(false);
-    var template = DocsList.getFileById(fileId);
-    var name = template.getName();
-    var url = template.getUrl();
-    panel.add(app.createLabel("Currently selected merge template:").setStyleAttribute("marginTop", "10px").setStyleAttribute("width","100%").setStyleAttribute("backgroundColor", "#cfcfcf").setStyleAttribute("fontSize", "16px").setStyleAttribute("padding", "5px"));
-    var anchor = app.createAnchor(name, url);
-    panel.add(anchor);
-    var docFields = autoCrat_fetchDocFields(fileId);
-    var scrollpanel = app.createScrollPanel().setHeight(80).setWidth("100%").setStyleAttribute("backgroundColor", "whiteSmoke");
-    var illegalTags = false;
-    for (var j=0; j<docFields.length; j++) {
-      var exp = new RegExp(/[0-9]/);
-      var test = docFields[j].substr(2,1);
-      if (isNumber(test)==true) {
-        illegalTags = true;
-      }
+  var app = UiApp.getActiveApplication();
+  var panel = app.getElementById("panel");
+  var spinner = app.getElementById("dialogspinner");
+  panel.clear();
+  var image = app.createImage("https://c04a7a5e-a-3ab37ab8-s-sites.googlegroups.com/a/newvisions.org/data-dashboard/searchable-docs-collection/download.png?attachauth=ANoY7cpTRdoqkEnOB2Godog9PVqEFovv__DxSqM02KnW3_FNFZZA0CneTMejWaPWWA01AOVfgHhAhYkUkBUfiZQbUm4DiYo82xjSIEYxokxpeHPWChhsI8TetLMKMn7V8inAH7HMCgogCUc5yEtVHUJkus-FbCBGvYmi9KKozeA9cFSu7Q962YAUPp2ft86FC5kMdic_npgrxnaoERIXO6Iw0GUI04KmXseVg4sBioo33Ezz_14u9WPB5TqBW4x6MmSJ1I514Zw3&attredirects=0");
+  panel.setStyleAttribute('opacity','1');
+  spinner.setVisible(false);
+  var template = DocsList.getFileById(fileId);
+  var name = template.getName();
+  var url = template.getUrl();
+  panel.add(app.createLabel("Currently selected merge template:").setStyleAttribute("marginTop", "10px").setStyleAttribute("width","100%").setStyleAttribute("backgroundColor", "#cfcfcf").setStyleAttribute("fontSize", "16px").setStyleAttribute("padding", "5px"));
+  var anchor = app.createAnchor(name, url);
+  panel.add(anchor);
+  var docFields = autoCrat_fetchDocFields(fileId);
+  var scrollpanel = app.createScrollPanel().setHeight(80).setWidth("100%").setStyleAttribute("backgroundColor", "whiteSmoke");
+  var illegalTags = false;
+  for (var j=0; j<docFields.length; j++) {
+    var exp = new RegExp(/[0-9]/);
+    var test = docFields[j].substr(2,1);
+    if (isNumber(test)==true) {
+      illegalTags = true;
     }
-    if ((docFields.length>0)&&(illegalTags==false)) {
-      var fieldLabel = app.createLabel("Your template contains the following tags: ").setStyleAttribute("marginTop", "10px").setStyleAttribute("width","100%").setStyleAttribute("backgroundColor", "#cfcfcf").setStyleAttribute("fontSize", "16px").setStyleAttribute("padding", "5px");
-      var list = app.createFlexTable();
-      for (var i=0; i<docFields.length; i++) {
-        list.setText(i, 0, docFields[i]);
-      }
-      panel.add(fieldLabel);
-      scrollpanel.add(list);
-      panel.add(scrollpanel);
-    } 
-    if (illegalTags==true) {
-      var fieldLabel = app.createLabel("This template contains illegal merge tags. Tags must not start with numbers.").setStyleAttribute("color", "red").setStyleAttribute("marginTop", "10px").setStyleAttribute("width","100%").setStyleAttribute("backgroundColor", "#cfcfcf").setStyleAttribute("fontSize", "16px").setStyleAttribute("padding", "5px");
-      panel.add(fieldLabel);
-      panel.add(image);
+  }
+  if ((docFields.length>0)&&(illegalTags==false)) {
+    var fieldLabel = app.createLabel("Your template contains the following tags: ").setStyleAttribute("marginTop", "10px").setStyleAttribute("width","100%").setStyleAttribute("backgroundColor", "#cfcfcf").setStyleAttribute("fontSize", "16px").setStyleAttribute("padding", "5px");
+    var list = app.createFlexTable();
+    for (var i=0; i<docFields.length; i++) {
+      list.setText(i, 0, docFields[i]);
     }
-    if (docFields.length==0) {  
-      var fieldLabel = app.createLabel("This template contains no merge tags. Tags must contain no special characters, must NOT start with numbers, and must use the style shown below:").setStyleAttribute("color", "red").setStyleAttribute("marginTop", "10px").setStyleAttribute("width","100%").setStyleAttribute("backgroundColor", "#cfcfcf").setStyleAttribute("fontSize", "16px").setStyleAttribute("padding", "5px");
-      panel.add(fieldLabel);
-      panel.add(image);
-    }
-    var chooseHandler = app.createServerHandler('showDocsPicker');
-    var chooseButton = app.createButton("Choose a different template").addClickHandler(chooseHandler);
-    panel.add(chooseButton);
-    var nextHandler = app.createServerHandler('next');
-    var nextButton = app.createButton("Save settings").addClickHandler(nextHandler);
-    if (docFields.length==0) {
-      nextButton.setEnabled(false);
-    }
-    panel.add(nextButton);
+    panel.add(fieldLabel);
+    scrollpanel.add(list);
+    panel.add(scrollpanel);
+  } 
+  if (illegalTags==true) {
+    var fieldLabel = app.createLabel("This template contains illegal merge tags. Tags must not start with numbers.").setStyleAttribute("color", "red").setStyleAttribute("marginTop", "10px").setStyleAttribute("width","100%").setStyleAttribute("backgroundColor", "#cfcfcf").setStyleAttribute("fontSize", "16px").setStyleAttribute("padding", "5px");
+    panel.add(fieldLabel);
+    panel.add(image);
+  }
+  if (docFields.length==0) {  
+    var fieldLabel = app.createLabel("This template contains no merge tags. Tags must contain no special characters, must NOT start with numbers, and must use the style shown below:").setStyleAttribute("color", "red").setStyleAttribute("marginTop", "10px").setStyleAttribute("width","100%").setStyleAttribute("backgroundColor", "#cfcfcf").setStyleAttribute("fontSize", "16px").setStyleAttribute("padding", "5px");
+    panel.add(fieldLabel);
+    panel.add(image);
+  }
+  var chooseHandler = app.createServerHandler('showDocsPicker');
+  var chooseButton = app.createButton("Choose a different template").addClickHandler(chooseHandler);
+  panel.add(chooseButton);
+  var nextHandler = app.createServerHandler('next');
+  var nextButton = app.createButton("Save settings").addClickHandler(nextHandler);
+  if (docFields.length==0) {
+    nextButton.setEnabled(false);
+  }
+  panel.add(nextButton);
 }
 
 function showDocsPicker() {
@@ -1865,25 +1906,25 @@ function showDocsPicker() {
 }
 
 function saveDocID(e){
-    var app = UiApp.getActiveApplication();
-    var oldFileId = ScriptProperties.getProperty('fileId');
-    var docTemplate = DocsList.getFileById(e.parameter.items[0].id);
-    var fileId = docTemplate.getId();
-    if ((oldFileId)&&(oldFileId!=fileId)) {
-      ScriptProperties.setProperty('mappingString', '');
-    }
-    var fileName = docTemplate.getName();
-    ScriptProperties.setProperty('fileId', fileId);
-    ScriptProperties.setProperty('fileName', fileName);
-    refreshTemplatePanel(fileId);
-    return app;
+  var app = UiApp.getActiveApplication();
+  var oldFileId = ScriptProperties.getProperty('fileId');
+  var docTemplate = DocsList.getFileById(e.parameter.items[0].id);
+  var fileId = docTemplate.getId();
+  if ((oldFileId)&&(oldFileId!=fileId)) {
+    ScriptProperties.setProperty('mappingString', '');
+  }
+  var fileName = docTemplate.getName();
+  ScriptProperties.setProperty('fileId', fileId);
+  ScriptProperties.setProperty('fileName', fileName);
+  refreshTemplatePanel(fileId);
+  return app;
 }
 
 function next() {
   var app = UiApp.getActiveApplication();
   autoCrat_initialize();
   if (!(ScriptProperties.getProperty('sheetName'))||(ScriptProperties.getProperty('sheetName'==''))) {
-       autoCrat_defineSettings();
+    autoCrat_defineSettings();
   }
   app.close();
   return app;
@@ -1907,7 +1948,7 @@ function autoCrat_defineSettings() {
       sheetListBox.addItem(sheetName);
     }
   }
-
+  
   panel.add(sheetLabel);
   panel.add(sheetListBox);
   
@@ -1921,7 +1962,7 @@ function autoCrat_defineSettings() {
   var clickHandler = app.createServerHandler('autoCrat_saveSettings').addCallbackElement(panel);
   var spinnerHandler = app.createClientHandler().forTargets(spinner).setVisible(true).forTargets(panel).setStyleAttribute('opacity', '0.5');
   var button = app.createButton("Save").addClickHandler(clickHandler).addClickHandler(spinnerHandler);
-   panel.add(button);
+  panel.add(button);
   
   app.add(panel);
   app.add(spinner);
@@ -1942,8 +1983,8 @@ function autoCrat_getFolderIndex(folderId) {
     if (folderId == folders[i].getId()) {
       indexFlag = i;
       break;
-     }
-   }
+    }
+  }
   return indexFlag; 
 }
 
@@ -1957,8 +1998,8 @@ function autoCrat_getSheetIndex(sheetName) {
     if (sheetName ==sheets[i].getName()) {
       indexFlag = i;
       break;
-     }
-   }
+    }
+  }
   return indexFlag; 
 }
 
@@ -1975,9 +2016,9 @@ function autoCrat_saveSettings(e) {
     autoCrat_defineSettings();
     return;
   }
-   // Clear the mapping string property if the sheet name has been changed
-   if (!(ScriptProperties.getProperty('sheetName')==sheetName)) {
-     ScriptProperties.setProperty('mappingString','');
+  // Clear the mapping string property if the sheet name has been changed
+  if (!(ScriptProperties.getProperty('sheetName')==sheetName)) {
+    ScriptProperties.setProperty('mappingString','');
   }
   ScriptProperties.setProperty('sheetName', sheetName);
   var sheet = ss.getSheetByName(sheetName);
@@ -1998,7 +2039,7 @@ function autoCrat_saveSettings(e) {
   }
   autoCrat_initialize();
   if (!(ScriptProperties.getProperty('mappingString'))||(ScriptProperties.getProperty('mappingString'==''))) {
-  autoCrat_setMergeConditions();
+    autoCrat_setMergeConditions();
   }
   app.close();
   return app; 
@@ -2027,17 +2068,17 @@ function autoCrat_getFiles(e) {
   if (!folderName) {
     var tempFolderId = ScriptProperties.getProperty('folderId');
     folderName = DocsList.getFolderById(tempFolderId);
-        }
-        
-    var folders = DocsList.getFolders();
-    var indexFlag = 1;
-    for (i=0; i < folders.length; i++) {
+  }
+  
+  var folders = DocsList.getFolders();
+  var indexFlag = 1;
+  for (i=0; i < folders.length; i++) {
     if (folders[i].getName()==folderName) {
       indexFlag = i;
       break;
-      }
-    }  
-   var folderId = folders[indexFlag].getId();
+    }
+  }  
+  var folderId = folders[indexFlag].getId();
   
   var folder = DocsList.getFolderById(folderId);
   var files = folder.getFilesByType("document");
