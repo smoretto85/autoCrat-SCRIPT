@@ -22,6 +22,11 @@ function autoCrat_preemptTimeout() {
 //----------------------------------------- Tracking ----------------------------------------------------//
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+function autoCrat_institutionalTrackingUi() {
+  NVSL.openInstitutionalTrackingUi();
+}
+
+
 function autoCrat_logDocCreation()
 {
    var systemName = ScriptProperties.getProperty('systemName');
