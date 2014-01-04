@@ -1,113 +1,141 @@
-var alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","AA","AB","AC","AD","AE","AF","AG","AH","AI","AJ","AK","AL","AM","AN","AO","AP","AQ","AR","AS","AT","AU","AV","AW","AX","AY","AZ"];
-var FORMULACADDYIMAGEURL = 'https://c04a7a5e-a-3ab37ab8-s-sites.googlegroups.com/a/newvisions.org/data-dashboard/searchable-docs-collection/formulaCaddy_icon.gif?attachauth=ANoY7cq0pvQqsSiCo2XLcXxjrzNDmlWtNTjFIDM60Wz9CUdiFUYR6UiFB-CF81KKwD7T2EIjdA1JNd65Ndp-d_KypSbOqTv2QdduiiEIwLm3AuaH-iF6kjf5GK-ir7ew5UPWbqiAxl5cVjhvlXZaZGHNpKOb0I78JbuAVcPmoc8uMzAChZ_iHuS_7b6IN_IYF1VgeOWBnIjel6ZCWgGlyfIR65MWvv0bhs1ztQCZRYdQQj96D3ZdcCWugeiHtYCS13_cY-7VU4KT&attredirects=0';
-var excludedHeaders = ['Merged Doc ID','Merged Doc URL','Link to merged Doc','Document Merge Status',"Case No"];
+var excludedHeaders = ['Merged Doc ID','Merged Doc URL','Link to merged Doc','Document Merge Status',"Case No","Formula Copy Down Status"];
 
 
-function autoCrat_waitForFormulaCaddy(ss) {
-  var startTime = new Date();
-  startTime = startTime.getTime();
-  var formulaCaddySheet = ss.getSheetByName('formulaCaddyStatus');
-  if (!formulaCaddySheet) {
-    return;
-  } else {
-    var now = new Date();
-    now = now.getTime();
-    var caddyStatus = 0;
-    while ((caddyStatus == 0)&&((now-startTime)<100000)) {
-      caddyStatus = formulaCaddySheet.getRange('A2').getValue();
-      Utilities.sleep(100);
-      now = new Date();
-      now = now.getTime();
+function returnAlphabet() {
+  var alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"];
+  var properties = ScriptProperties.getProperties();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetById(ss, properties.formSheetId);
+  var excelAlphabet = [];
+  for (var i=0; i<sheet.getLastColumn(); i++) {
+    var thisLetter = '';
+    var numIterations = i/26;
+    var mod = i%26;
+    var thisEndLetter = alphabet[mod];
+    var thisLeadingLetter = '';
+    if (numIterations>=1) {
+      thisLeadingLetter = alphabet[Math.floor(numIterations)];
     }
-  } 
+    thisLetter = thisLeadingLetter + thisEndLetter;
+    excelAlphabet.push(thisLetter);
+  }
+  return excelAlphabet;
 }
 
 
-function copyDownFormulas() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.getSheetByName('formulaCaddyStatus').getRange('B1').setValue(0);
-  var properties = ScriptProperties.getProperties();
-  var sheet = getSheetById(ss, properties.formSheetId);
-  var thisRow = sheet.getActiveRange().getRow();
-  var colValues = Utilities.jsonParse(properties.colValues);
-  var formulaRow = parseInt(properties.formulaRow);
-  var objArray = [];
-  for (var key in colValues) {
-    var colNum = key.split("-")[1];
-    objArray.push({colNum: colNum, type: colValues[key], formula: properties['formula-'+colNum]});
-  }
-  objArray.sort(function(a,b){return a.colNum-b.colNum});
-  for (var i=0; i<objArray.length; i++) {
-    var colNum = objArray[i].colNum;
-    var type = objArray[i].type;
-    var formula = objArray[i].formula;
-    var copyCell = sheet.getRange(formulaRow, colNum).setFormula(formula);
-    var destCell = sheet.getRange(thisRow, colNum);
-    copyCell.copyTo(destCell);
-    if (type == 1) {
-      var newValue = destCell.getValue();
-      destCell.setValue(newValue);
+
+function getAllExludedHeaders() {
+  var theseExcludedHeaders = excludedHeaders;
+  var emailConditions = ScriptProperties.getProperty('emailConditions');
+  if (emailConditions) {
+    emailConditions = Utilities.jsonParse(emailConditions);
+    for (var key in emailConditions) {
+      if (key.split("-")[0] == "sht") {
+        theseExcludedHeaders.push(emailConditions[key] + " Status");
+      }
     }
+  }
+  var calendarConditions = ScriptProperties.getProperty('calendarConditions');
+  if (calendarConditions) {
+    calendarConditions = Utilities.jsonParse(calendarConditions);
+    for (var key in calendarConditions) {
+      if (key.split("-")[0] == "sht") {
+        theseExcludedHeaders.push(calendarConditions[key] + " Status");
+      }
+    }
+  }
+  var smsConditions = ScriptProperties.getProperty('smsConditions');
+  if (smsConditions) {
+    smsConditions = Utilities.jsonParse(smsConditions);
+    for (var key in smsConditions) {
+      if (key.split("-")[0] == "sht") {
+        theseExcludedHeaders.push(smsConditions[key] + " Status");
+      }
+    }
+  }
+  var formUrl = SpreadsheetApp.getActiveSpreadsheet().getFormUrl();
+  var form = FormApp.openByUrl(formUrl);
+  var items = form.getItems();
+  var excludedTypes = ['PAGE_BREAK','SECTION_HEADER','IMAGE']
+  for (var i=0; i<items.length; i++) {
+    var type = items[i].getType().toString();
+    if (excludedTypes.indexOf(type) == -1) {
+      theseExcludedHeaders.push(items[i].getTitle());
+    }
+  }
+  return theseExcludedHeaders;
+}
+
+
+function copyDownFormulas(thisRow, properties) {
+  if ((properties.copyDownFormulas == "true")&&(thisRow>1)) {
+    var alphabet = returnAlphabet()
+    var statusCol = returnCopydownStatusColIndex()+1;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = getSheetById(ss, properties.formSheetId);
+    var colValues = Utilities.jsonParse(properties.colValues);
+    var formulaRow = parseInt(properties.formulaRow);
+    var objArray = [];
+    for (var key in colValues) {
+      var colNum = key.split("-")[1];
+      objArray.push({colNum: colNum, type: colValues[key], formula: properties['formula-'+colNum]});
+    }
+    objArray.sort(function(a,b){return a.colNum-b.colNum});
+    var colNums = '';
+    for (var i=0; i<objArray.length; i++) {
+      var colNum = objArray[i].colNum;
+      if (i>0) {
+        colNums += ",";
+      }
+      colNums += alphabet[objArray[i].colNum-1];
+      var type = objArray[i].type;
+      var formula = objArray[i].formula;
+      var copyCell = sheet.getRange(formulaRow, colNum).setFormula(formula);
+      var destCell = sheet.getRange(thisRow, colNum);
+      copyCell.copyTo(destCell);
+      if (type == 1) {
+        var newValue = destCell.getValue();
+        var tries = 0;
+        while ((newValue == "#N/A")&&(tries<5)) {
+          SpreadsheetApp.flush();
+          newValue = destCell.getValue();
+          Utilities.sleep(tries * 1000);
+          tries++;
+        } 
+        destCell.setValue(newValue);
+      }
+    }
+    var now = new Date();
+    now = Utilities.formatDate(now, ss.getSpreadsheetTimeZone(), "MM/dd/yy' at 'h:mm:ss a")
+    sheet.getRange(thisRow, statusCol).setValue("Formulas in columns " + colNums + " copied down on " + now);
     SpreadsheetApp.flush();
   }
-  ss.getSheetByName('formulaCaddyStatus').getRange('B1').setValue(1);
-  SpreadsheetApp.flush();
-}
-
-
-function checkCreateSheet(ss) {
-  var formulaCaddySheet = ss.getSheetByName('formulaCaddyStatus');
-  var topSheet = ss.getSheets()[0];
-  if (!formulaCaddySheet) {
-    formulaCaddySheet = ss.insertSheet('formulaCaddyStatus');
-    formulaCaddySheet.getRange("A1:B1").setValues([["Status","1"]]);
-    formulaCaddySheet.getRange("A2:B2").setValues([["Trigger Set", "0"]]);
-    formulaCaddySheet.deleteColumns(3, formulaCaddySheet.getMaxColumns()-3);
-    formulaCaddySheet.deleteRows(3, formulaCaddySheet.getMaxRows()-3);
-    ss.setActiveSheet(topSheet);
-    formulaCaddySheet.hideSheet();
-  }
-  SpreadsheetApp.flush();
-  return formulaCaddySheet;
-}
-
-
-function checkSetTrigger() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var formulaCaddySheet = checkCreateSheet(ss);
-  var triggerSet = formulaCaddySheet.getRange("B2").getValue();
-  var ssId = ss.getId(); 
-  if (triggerSet!=1) {
-    setCopyDownTrigger();
-  }
   return;
 }
 
 
 
-function setCopyDownTrigger() {
+function returnCopydownStatusColIndex() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var ssId = ss.getId();
-  var formulaCaddySheet = checkCreateSheet(ss);
-  var triggers = ScriptApp.getProjectTriggers();
-  var found = false;
-  for (var i=0; i<triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() == "copyDownFormulas") {
-      found = true;
-      break;
+  var sheetName = ScriptProperties.getProperty('sheetName');
+  var sheet = ss.getSheetByName(sheetName);
+  if (sheet) {
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var index = headers.indexOf("Formula Copy Down Status");
+    if (index == -1) {
+      var lastCol = sheet.getLastColumn();
+      sheet.insertColumnAfter(lastCol);
+      index = lastCol + 1;
+      sheet.getRange(1, index).setValue("Formula Copy Down Status").setNote("Edit formula copy down preferences in Advanced settings").setBackground("purple").setFontColor("white").setFontStyle("bold");
     }
+    return index;
   }
-  if (!found) {
-    ScriptApp.newTrigger('copyDownFormulas').forSpreadsheet(ssId).onFormSubmit().create();
-    formulaCaddySheet.getRange("B2").setValue("1");
-    ScriptProperties.setProperty('formulaTriggerSet','true');
-  }
-  return;
+  return -1;
 }
 
 
 
-function detectFormSheet() {
+function autoCrat_detectFormSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var ssId = ss.getId();
   ScriptProperties.setProperty('ssId', ssId);
@@ -116,7 +144,11 @@ function detectFormSheet() {
     Browser.msgBox("This feature only works on Spreadsheets with attached forms");
     return;
   }
-  var form = FormApp.openByUrl(formUrl);
+  try {
+    var form = FormApp.openByUrl(formUrl);
+  } catch(err) {
+    Browser.msgBox("Unable to access the form attached to this spreadsheet...");
+  }
   var items = form.getItems();
   var sheets = ss.getSheets();
   for (var i=0; i<sheets.length; i++) {
@@ -182,6 +214,7 @@ function formulaCaddy_createJob() {
   var activeSheetName = formSheet.getName();
   var activeSheetSelectIndex = sheetNames.indexOf(activeSheetName);
   var app = UiApp.createApplication().setTitle("Copy down formulas within form response sheet").setHeight(400).setWidth(700);
+  var outerScroll = app.createScrollPanel().setHeight("390px").setWidth("690px");
   var panel = app.createVerticalPanel().setId("panel").setWidth("680px").setHeight("200px");
   var help = "This feature allows you to use additional columns in the form response sheet to calculate or look up values upon form submission. ";
   help += "Only columns that are not part of your form will be available for selection below. Selecting the \"Paste as values?\" checkbox will ";
@@ -191,7 +224,7 @@ function formulaCaddy_createJob() {
   panel.add(helpHtml);
   var columns = formSheet.getLastColumn();
   var grid = app.createGrid(4, columns+1).setId('grid');
-  var spinner = app.createImage(FORMULACADDYIMAGEURL).setWidth("115px").setId('spinner');
+  var spinner = app.createImage(AUTOCRATIMAGEURL).setWidth("115px").setId('spinner');
   spinner.setVisible(false);
   spinner.setStyleAttribute("position", "absolute");
   spinner.setStyleAttribute("top", "120px");
@@ -206,7 +239,8 @@ function formulaCaddy_createJob() {
   noDataLabel.setVisible(false);
   panel.add(noDataLabel);
   panel.add(grid);
-  app.add(panel);
+  outerScroll.add(panel);
+  app.add(outerScroll);
   app.add(spinner);
   formulaCaddy_returnSheetUi(formSheet, properties);
   ss.show(app);        
@@ -214,6 +248,8 @@ function formulaCaddy_createJob() {
 
 
 function formulaCaddy_returnSheetUi(sheet, properties) {
+  var allExcludedHeaders = getAllExludedHeaders();
+  var alphabet = returnAlphabet();
   var app = UiApp.getActiveApplication();
   var panel = app.getElementById('panel');
   panel.setStyleAttribute('opacity','1');
@@ -277,8 +313,8 @@ function formulaCaddy_returnSheetUi(sheet, properties) {
     var formulaLabels = [];
     var asValuesCheckBoxes = [];
     for (var i=0; i<columns; i++) {
-      onButtons[i] = app.createButton(this.alphabet[i]).setId('onButton-'+sheetId+'-'+i).setStyleAttribute('background', 'whiteSmoke').setWidth("50px");
-      offButtons[i] = app.createButton(this.alphabet[i]).setId('offButton-'+sheetId+'-'+i).setStyleAttribute('background', '#E5E5E5').setStyleAttribute('border', '2px solid grey').setWidth("50px").setVisible(false);
+      onButtons[i] = app.createButton(alphabet[i]).setId('onButton-'+sheetId+'-'+i).setStyleAttribute('background', 'whiteSmoke').setWidth("50px");
+      offButtons[i] = app.createButton(alphabet[i]).setId('offButton-'+sheetId+'-'+i).setStyleAttribute('background', '#E5E5E5').setStyleAttribute('border', '2px solid grey').setWidth("50px").setVisible(false);
       buttonValues[i] = app.createTextBox().setVisible(false).setText(i+'-off').setName('bv-'+sheetId+'-'+i);
       var buttonPanel = app.createHorizontalPanel();
       buttonPanel.add(onButtons[i])
@@ -293,7 +329,7 @@ function formulaCaddy_returnSheetUi(sheet, properties) {
       grid.setWidget(1, i+1, app.createLabel(headers[i]));
       grid.setWidget(2, i+1, formulaLabel);   
       grid.setWidget(3, i+1, asValuesCheckBoxes[i]);
-      if ((headerBgs[i] == "#DDDDDD")||(excludedHeaders.indexOf(headers[i])!=-1)) {
+      if ((headerBgs[i] == "#DDDDDD")||(allExcludedHeaders.indexOf(headers[i])!=-1)) {
         grid.setStyleAttribute(1, i+1, 'backgroundColor', '#DDDDDD');
         onButtons[i].setEnabled(false).setVisible(false);
         offButtons[i].setEnabled(false).setVisible(false);
@@ -306,7 +342,7 @@ function formulaCaddy_returnSheetUi(sheet, properties) {
         onButtons[i].addClickHandler(onButtonHandlers[i]).addClickHandler(onButtonServerHandlers[i]);
         offButtons[i].addClickHandler(offButtonHandlers[i]).addClickHandler(offButtonServerHandlers[i]);
       }
-      if (colValues['col-'+(i+1)]) {
+      if ((colValues['col-'+(i+1)])&&(allExcludedHeaders.indexOf(headers[i])==-1)) {
         onButtons[i].setVisible(false);
         offButtons[i].setVisible(true);
         buttonValues[i].setText(i+'-on');
@@ -315,6 +351,8 @@ function formulaCaddy_returnSheetUi(sheet, properties) {
         if (colValues['col-'+(i+1)]=='1') {
           asValuesCheckBoxes[i].setValue(true);
         }
+      } else {
+        asValuesCheckBoxes[i].setValue(false);
       }
     }
     scrollPanel.add(grid);
@@ -333,6 +371,7 @@ function formulaCaddy_returnSheetUi(sheet, properties) {
 }
 
 
+
 function manualSave(e) {
   var app = UiApp.getActiveApplication();
   saveformulaCaddySettings(e);
@@ -345,7 +384,7 @@ function manualSave(e) {
 function waitingIcon() {
   var app = UiApp.createApplication().setHeight(250).setWidth(200);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var waitingImageUrl = this.formulaCadddyIMAGEURL;
+  var waitingImageUrl = this.AUTOCRATIMAGEURL;
   var image = app.createImage(waitingImageUrl).setWidth("125px").setStyleAttribute('marginLeft', '25px');
   app.add(image);
   app.add(app.createLabel('Please be patient as formulaCaddy formulas are recalculated and pasted down their designated columns. For complex spreadsheets this can take some time.'));
@@ -431,8 +470,6 @@ function toggleOpacity(e) {
 }
 
 
-
-
 function saveformulaCaddySettings(e) {
   var app = UiApp.getActiveApplication();
   var properties = ScriptProperties.getProperties();
@@ -442,22 +479,32 @@ function saveformulaCaddySettings(e) {
   var numCols = e.parameter.numCols;
   var formulaRow = e.parameter['formulaRow']
   properties["formulaRow"] = formulaRow;
+  var copyDownFormulas = "false";
   var colValues = {};
     for (var j=0; j<numCols; j++) {
       var buttonValue = e.parameter['bv-'+sheetId+'-'+j];
       if (buttonValue==j+'-on') {
+        copyDownFormulas = "true";
         var asValuesOption = e.parameter['av-'+sheetId+'-'+j];
-        if (asValuesOption == "false") {
+        if (asValuesOption == 'false') {
           colValues["col-" + (j+1)] = 2;
         } else {
           colValues["col-" + (j+1)] = 1; 
         }
         properties["formula-" + (j+1)] = sheet.getRange(formulaRow, j+1).getFormula().toString();
-      } 
+      } else {
+        try {
+          delete colValues["col-" + (j+1)];
+          delete properties["formula-" + (j+1)];
+          ScriptProperties.deleteProperty("formula-" + (j+1));
+        } catch(err) { 
+        }
+      }
     }
+  properties.copyDownFormulas = copyDownFormulas;
   properties.colValues = Utilities.jsonStringify(colValues);
   ScriptProperties.setProperties(properties);
-  checkSetTrigger();
+  returnCopydownStatusColIndex();
   app.close();
   return app;
 }
