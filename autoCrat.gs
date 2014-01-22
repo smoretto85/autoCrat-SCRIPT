@@ -1,4 +1,4 @@
-var scriptTitle = "autoCrat Script V4.5.2 (1/4/14)";
+var scriptTitle = "autoCrat Script V4.5.3 (1/15/14)";
 var scriptName = "autoCrat"
 var analyticsId = 'UA-30983014-1'
 // Written by Andrew Stillman for New Visions for Public Schools
