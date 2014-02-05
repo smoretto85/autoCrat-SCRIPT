@@ -1,3 +1,24 @@
+function fixIssue3495(documentId) {
+  var document = DocumentApp.openById(documentId);
+  removeEmptyTables(document.getBody());
+  document.saveAndClose();
+}
+
+function removeEmptyTables(element) {
+  if (element.getType() == DocumentApp.ElementType.TABLE && element.getNumChildren() == 0) {
+    Logger.log('Found an empty table, removing it.');
+    element.removeFromParent();
+  } else {
+    if (element.getNumChildren) {
+      for (var i = 0; i < element.getNumChildren(); i++) {
+        removeEmptyTables(element.getChild(i));
+      }
+    }
+  }
+}
+
+
+
 function autoCrat_removeTimeoutTrigger() {
   var triggers = ScriptApp.getScriptTriggers();
   if (triggers.length>0) {
@@ -22,29 +43,47 @@ function autoCrat_preemptTimeout() {
 //----------------------------------------- Tracking ----------------------------------------------------//
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+//This function makes a call to the correct installation function.
+//Embed this in the function that creates first actively loaded UI panel within the script
+function setSid() { 
+  var scriptNameLower = scriptName.toLowerCase();
+  var sid = ScriptProperties.getProperty(scriptNameLower + "_sid");
+  if (sid == null || sid == "")
+  {
+    var dt = new Date();
+    var ms = dt.getTime();
+    var ms_str = ms.toString();
+    ScriptProperties.setProperty(scriptNameLower + "_sid", ms_str);
+    var uid = UserProperties.getProperty(scriptNameLower + "_uid");
+    if (uid) {
+      logRepeatInstall();
+    } else {
+      logFirstInstall();
+      UserProperties.setProperty(scriptNameLower + "_uid", ms_str);
+    }      
+  }
+}
+
+function logRepeatInstall() {
+  var systemName = ScriptProperties.getProperty("systemName")
+  NVSL.log("Repeat%20Install", scriptName, scriptTrackingId, systemName)
+}
+
+function logFirstInstall() {
+  var systemName = ScriptProperties.getProperty("systemName")
+  NVSL.log("First%20Install", scriptName, scriptTrackingId, systemName)
+}
+
+
 function autoCrat_institutionalTrackingUi() {
   NVSL.openInstitutionalTrackingUi();
 }
 
-
-function autoCrat_logDocCreation()
-{
+function autoCrat_logDocCreation() {
    var systemName = ScriptProperties.getProperty('systemName');
-   NVSL.log("Merged%20Doc%20Created", scriptName ,analyticsId, systemName)
+   NVSL.log("Merged%20Doc%20Created", scriptName ,scriptTrackingId, systemName)
 }
-
-
-function autoCrat_logInstall()
-{
-  var systemName = ScriptProperties.getProperty('systemName');
-  if (!UserProperties.getProperty("autoCrat_uid")){
-    NVSL.log("First%20Install", scriptName ,analyticsId, systemName)
-  }else{
-    NVSL.log("Repeat%20Install", scriptName, analyticsId, systemName)
-  }
-   
-}
-
 
 // utility function to clear all merge status messages and doc links associated with rows in the source sheet
 // some may find it useful to set this on a regular time trigger (once a day, for example) within a given workflow
