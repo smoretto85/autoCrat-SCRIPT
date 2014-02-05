@@ -1,6 +1,6 @@
-var scriptTitle = "autoCrat Script V4.5.3 (1/15/14)";
+var scriptTitle = "autoCrat Script V4.5.3 (1/30/14)";
 var scriptName = "autoCrat"
-var analyticsId = 'UA-30983014-1'
+var scriptTrackingId = 'UA-30983014-1'
 // Written by Andrew Stillman for New Visions for Public Schools
 // Published under GNU General Public License, version 3 (GPL-3.0)
 // See restrictions at http://www.opensource.org/licenses/gpl-3.0.html
@@ -523,6 +523,7 @@ function autoCrat_setFileCheck () {
 
 function autoCrat_saveRunSettings(e) {
   var ss = SpreadsheetApp.getActive();
+  var properties = ScriptProperties.getProperties();
   var app = UiApp.getActiveApplication();
   var destinationFolderId = e.parameter.destinationFolderId;
   var secondaryFolderId = e.parameter.secondaryFolderId;
@@ -540,6 +541,10 @@ function autoCrat_saveRunSettings(e) {
   var emailAttachment = e.parameter.emailAttachment;
   var formTrigger = e.parameter.formTrigger;
   
+  if ((fileType=="PDF")||(emailAttachment=="PDF")) {
+    fixIssue3495(properties.fileId);
+  }
+   
   if (linkToDoc=="true") {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sourceSheetName = ScriptProperties.getProperty('sheetName');
@@ -1788,6 +1793,7 @@ function autoCrat_evaluateConditions(condString, index, rowData, normalizedHeade
 
 
 function autoCrat_defineTemplate() {
+  setSid();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var topSheet = ss.getSheets()[0];
   if (topSheet.getLastColumn()<1) {
