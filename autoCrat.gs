@@ -1224,7 +1224,7 @@ function autoCrat_mapFields() {
   app.setTitle("Step 4: Set Field Mappings");
   app.setHeight("430");
   var panel = app.createScrollPanel().setId("fieldMappingPanel");
-  var helpPopup = app.createDecoratedPopupPanel();
+  var helpPopup = app.createPopupPanel();
   var helpLabel = app.createLabel().setText("If all is working properly, Every <<Merge Tag>> in your document template should be listed on the left. Each tag needs to be \"mapped\" onto a corresponding column in your source data sheet.  IMPORTANT: using non-alpha-numeric characters {(),&%#etc} in tags will cause the merge to fail.");
   helpPopup.add(helpLabel);
   //create grid but without a size, for now
@@ -1663,7 +1663,7 @@ function autoCrat_removeDuplicateElement(arrayName)
 function autoCrat_setMergeConditions() {
   var app = UiApp.createApplication().setTitle("Step 3: Set Merge Conditions (optional)");
   var panel = app.createVerticalPanel();
-  var helppanel = app.createDecoratedPopupPanel();
+  var helppanel = app.createPopupPanel();
   var label = app.createLabel('Use the widget below to set a field value condition that must be met for records to be merged to Docs.  Rows that do not meet the condition will be skipped and given a blank status message.  Leave the condition field blank to ignore.');
   helppanel.add(label);
   panel.add(helppanel);
