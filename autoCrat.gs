@@ -1014,7 +1014,7 @@ function autoCrat_runMerge(preview) {
         var urlValue = [[url]];
         var copyIdValue = [[mergeFileId]];
         var mergeTitle = mergeFile.getName();
-        var link = [['=hyperlink("' + url + '", "' + mergeTitle + '")']];
+        var link = [['=hyperlink("' + url + '"; "' + mergeTitle + '")']];
         var mergeStatusMessage = [[mergeStatusMessage]];
         range1.setValues(link);
         range2.setValues(urlValue);
